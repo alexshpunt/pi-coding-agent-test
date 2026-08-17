@@ -1,0 +1,103 @@
+{
+    "name": "pi-coding-agent-test",
+    "version": "0.1.0",
+    "description": "Deterministic end-to-end testing for Pi Coding Agent extensions, tools, sessions, and TUI output.",
+    "type": "module",
+    "types": "./dist/index.d.ts",
+    "files": [
+        "dist",
+        "skills",
+        "test",
+        "scripts",
+        "assets",
+        "CHANGELOG.md",
+        "LICENSE"
+    ],
+    "bin": {
+        "pi-test": "dist/cli.mjs"
+    },
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js"
+        },
+        "./base": {
+            "types": "./dist/base.d.ts",
+            "import": "./dist/base.js"
+        },
+        "./package.json": "./package.json"
+    },
+    "keywords": [
+        "pi-package",
+        "pi-coding-agent",
+        "testing",
+        "end-to-end",
+        "integration-testing",
+        "test-runner",
+        "terminal",
+        "tui"
+    ],
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/alexshpunt/pi-coding-agent-test.git"
+    },
+    "homepage": "https://github.com/alexshpunt/pi-coding-agent-test#readme",
+    "bugs": {
+        "url": "https://github.com/alexshpunt/pi-coding-agent-test/issues"
+    },
+    "engines": {
+        "node": ">=22.19.0"
+    },
+    "publishConfig": {
+        "access": "public"
+    },
+    "pi": {
+        "skills": [
+            "./skills"
+        ]
+    },
+    "scripts": {
+        "prebuild": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
+        "build": "tsc -p tsconfig.build.json && node -e \"require('node:fs').chmodSync('dist/cli.mjs', 0o755)\"",
+        "test": "npm run test:unit",
+        "test:unit": "npm run build && vitest run --config vitest.config.ts",
+        "test:coverage": "npm run build && vitest run --config vitest.config.ts --coverage",
+        "test:integration": "npm run build && node dist/cli.mjs run -- vitest run --config vitest.integration.config.ts",
+        "test:examples": "npm run build && node dist/cli.mjs run -- vitest run --config vitest.integration.config.ts test/examples",
+        "demo:replay": "bash scripts/replay-demo.sh",
+        "demo:live": "bash scripts/live-demo.sh",
+        "format:check": "dprint check .",
+        "format:write": "dprint fmt .",
+        "lint": "eslint --max-warnings=0 . --cache --cache-strategy content --cache-location .tmp/eslintcache",
+        "lint:fix": "eslint --max-warnings=0 . --cache --cache-strategy content --cache-location .tmp/eslintcache --fix",
+        "typecheck": "tsc --noEmit -p tsconfig.json --incremental --tsBuildInfoFile .tmp/tsconfig.tsbuildinfo",
+        "check": "npm run format:check && npm run lint && npm run typecheck && npm run test:unit",
+        "prepack": "npm run build",
+        "prepublishOnly": "npm run check"
+    },
+    "dependencies": {
+        "@earendil-works/pi-ai": "latest",
+        "@xterm/headless": "^6.0.0",
+        "cross-spawn": "^7.0.6",
+        "node-pty": "^1.1.0"
+    },
+    "devDependencies": {
+        "@earendil-works/pi-coding-agent": "latest",
+        "@eslint/js": "^9.39.5",
+        "@types/cross-spawn": "^6.0.6",
+        "@types/node": "^24.0.4",
+        "@vitest/coverage-v8": "^4.1.10",
+        "dprint": "^0.55.2",
+        "eslint": "^9.39.5",
+        "eslint-import-resolver-typescript": "^4.4.5",
+        "eslint-plugin-import-x": "^4.17.1",
+        "eslint-plugin-n": "^17.24.0",
+        "eslint-plugin-promise": "^7.3.0",
+        "eslint-plugin-unicorn": "^60.0.0",
+        "globals": "^16.5.0",
+        "typescript": "^5.9.3",
+        "typescript-eslint": "^8.67.0",
+        "vitest": "^4.1.10"
+    }
+}

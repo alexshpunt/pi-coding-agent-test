@@ -1,0 +1,129 @@
+
+ pi v0.84.2                                                                                                                                                     
+ escape interrupt · ctrl+c/ctrl+d clear/exit · / commands · ! bash · ctrl+o more                                                                                
+ Press ctrl+o to show full startup help and loaded resources.                                                                                                   
+                                                                                                                                                                
+ Pi can explain its own features and look up its docs. Ask it how to use or extend Pi.                                                                          
+
+
+[Context]                                                                                                                                                       
+  ~/.pi/agent/APPEND_SYSTEM.md                                                                                                                                  
+
+[Extensions]                                                                                                                                                    
+  extension.js                                                                                                                                                  
+
+
+ Error: Failed to load theme "gruvbox-dark": Theme not found: gruvbox-dark                                                                                      
+ Fell back to dark theme.                                                                                                                                       
+
+                                                                                                                                                                
+ Inspect, edit, write, and verify a real TypeScript pacing implementation with every built-in tool                                                              
+                                                                                                                                                                
+
+                                                                                                                                                                
+ ls src/live (limit 20)                                                                                                                                         
+                                                                                                                                                                
+ pacing.ts                                                                                                                                                      
+                                                                                                                                                                
+
+                                                                                                                                                                
+ find *.ts in src (limit 50)                                                                                                                                    
+                                                                                                                                                                
+ live/pacing.ts                                                                                                                                                 
+                                                                                                                                                                
+
+                                                                                                                                                                
+ grep /streamProfiles/ in src/live/pacing.ts limit 20                                                                                                           
+                                                                                                                                                                
+ pacing.ts-2-                                                                                                                                                   
+ pacing.ts-3- import type { AssistantContentBlock, PiIntegrationTestOptions, ToolCallBlock } from "../scenario/types.js";                                       
+ pacing.ts-4-                                                                                                                                                   
+ pacing.ts:5: const streamProfiles: Readonly<Record<string, StreamProfile>> = {                                                                                 
+ pacing.ts-6-     "gpt-5.6-sol-xhigh": {                                                                                                                        
+ pacing.ts-7-         charactersPerToken: 4,                                                                                                                    
+ pacing.ts-8-         firstDeltaLatencyMs: { min: 170, max: 330 },                                                                                              
+ pacing.ts-381-                                                                                                                                                 
+ pacing.ts-382- function getStreamProfile(name: string): StreamProfile                                                                                          
+ pacing.ts-383- {                                                                                                                                               
+ pacing.ts:384:     const profile = streamProfiles[name];                                                                                                       
+ pacing.ts-385-                                                                                                                                                 
+ pacing.ts-386-     if (profile === undefined)                                                                                                                  
+ pacing.ts-387-     {                                                                                                                                           
+ pacing.ts-387-     {                                                                                                                                           
+ ... (6 more lines, ctrl+o to expand)                                                                                                                           
+                                                                                                                                                                
+
+                                                                                                                                                                
+ read src/live/pacing.ts:1-180                                                                                                                                  
+                                                                                                                                                                
+
+                                                                                                                                                                
+ edit src/live/pacing.ts                                                                                                                                        
+                                                                                                                                                                
+      ...                                                                                                                                                       
+    6     "gpt-5.6-sol-xhigh": {                                                                                                                                
+    7         charactersPerToken: 4,                                                                                                                            
+    8         firstDeltaLatencyMs: { min: 170, max: 330 },                                                                                                      
+    9         outputTokensPerSecond: 68,                                                                                                                        
+ + 10         // Keep packet pacing and output speed easy to inspect.                                                                                           
+   10         packetLatencyMs: { min: 12, max: 36 },                                                                                                            
+   11         speedJitter: 0.18,                                                                                                                                
+   12     },                                                                                                                                                    
+   13     "gemini-3.5-flash": {                                                                                                                                 
+      ...                                                                                                                                                       
+   18         speedJitter: 0.18,                                                                                                                                
+   19     },                                                                                                                                                    
+   20 };                                                                                                                                                        
+   21 const defaultStreamProfile = "gpt-5.6-sol-xhigh";                                                                                                         
+ + 23 // The replay demo keeps the default pacing visible in the source.                                                                                        
+   22                                                                                                                                                           
+   23 interface NumberRange                                                                                                                                     
+   24 {                                                                                                                                                         
+   25     readonly min: number;                                                                                                                                 
+      ...                                                                                                                                                       
+  231 }                                                                                                                                                         
+  232                                                                                                                                                           
+  233 function scheduleValue(value: string, profile: StreamProfile, random: Random): StreamSchedule                                                             
+  234 {                                                                                                                                                         
+ +237     // Schedule each packet so replay preserves the progressive transition.                                                                               
+  235     const characters = unicodeCharacters(value);                                                                                                          
+  236     const chunks: string[] = [];                                                                                                                          
+  237     const delaysMs: number[] = [];                                                                                                                        
+  238     const charactersPerSecond = profile.outputTokensPerSecond * profile.charactersPerToken;                                                               
+      ...                                                                                                                                                       
+                                                                                                                                                                
+
+                                                                                                                                                                
+ read src/live/pacing.ts:1-220                                                                                                                                  
+                                                                                                                                                                
+
+                                                                                                                                                                
+ write src/live/replay-demo-summary.ts                                                                                                                          
+                                                                                                                                                                
+ // Generated by the comprehensive replay demo.                                                                                                                 
+ // The source file above is a real TypeScript implementation from this package.                                                                                
+ export const replayDemoSummary = {                                                                                                                             
+     source: "src/live/pacing.ts",                                                                                                                              
+     tools: ["ls", "find", "grep", "read", "edit", "write", "bash"],                                                                                            
+     purpose: "Make every built-in Pi tool visible in one replay",                                                                                              
+ } as const;                                                                                                                                                    
+                                                                                                                                                                
+
+                                                                                                                                                                
+ $ wc -l src/live/pacing.ts src/live/replay-demo-summary.ts && grep -n "replay demo" src/live/pacing.ts                                                         
+                                                                                                                                                                
+ 458 src/live/pacing.ts                                                                                                                                         
+     7 src/live/replay-demo-summary.ts                                                                                                                          
+   465 total                                                                                                                                                    
+ 23:// The replay demo keeps the default pacing visible in the source.                                                                                          
+                                                                                                                                                                
+ Took 0.0s                                                                                                                                                      
+                                                                                                                                                                
+
+ The complete built-in-tool replay demo is finished.                                                                                                            
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+                                                                                                                                                                
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+~/dev/pi/pi-coding-agent-test/.tmp/pi-integration-shared-534903-d13e7a5f0205/workspace (develop)
+3.0%/128k (auto)                                                                                                                       (scripted) scripted-model

@@ -1,0 +1,19 @@
+import type { TuiSize } from "../scenario/types.js";
+
+export const DEFAULT_MODEL = "scripted/scripted-model";
+
+export const DEFAULT_TIMEOUT_MS = 30_000;
+
+export const DEFAULT_TUI_SIZE = { cols: 160, rows: 50 } as const satisfies TuiSize;
+
+export const HARNESS_CONFIG_ENVIRONMENT = "PI_INTEGRATION_TEST_CONFIG";
+
+export const HARNESS_READY_ENVIRONMENT = "PI_INTEGRATION_TEST_READY";
+
+export const HARNESS_TRACE_ENVIRONMENT = "PI_INTEGRATION_TEST_TRACE";
+
+export const LIVE_MODE_ENVIRONMENT = "PI_INTEGRATION_TEST_LIVE";
+
+export const RAW_TOOL_OUTPUT_ENVIRONMENT = "PI_INTEGRATION_TEST_RAW_TOOL_OUTPUT";
+
+export const RAW_TOOL_OUTPUT_READY_ENVIRONMENT = "PI_INTEGRATION_TEST_RAW_TOOL_OUTPUT_READY";
