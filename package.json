@@ -1,6 +1,6 @@
 {
     "name": "pi-coding-agent-test",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "description": "Deterministic end-to-end testing for Pi Coding Agent extensions, tools, sessions, and TUI output.",
     "type": "module",
     "types": "./dist/index.d.ts",
@@ -71,7 +71,7 @@
         "format:write": "dprint fmt .",
         "lint": "eslint --max-warnings=0 . --cache --cache-strategy content --cache-location .tmp/eslintcache",
         "lint:fix": "eslint --max-warnings=0 . --cache --cache-strategy content --cache-location .tmp/eslintcache --fix",
-        "typecheck": "tsc --noEmit -p tsconfig.json --incremental --tsBuildInfoFile .tmp/tsconfig.tsbuildinfo",
+        "typecheck": "npm run build && tsc --noEmit -p tsconfig.json --incremental --tsBuildInfoFile .tmp/tsconfig.tsbuildinfo",
         "check": "npm run format:check && npm run lint && npm run typecheck && npm run test:unit",
         "prepack": "npm run build",
         "prepublishOnly": "npm run check"

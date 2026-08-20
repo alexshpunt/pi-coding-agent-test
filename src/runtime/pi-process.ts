@@ -3,6 +3,9 @@ import type { PiIntegrationTestProviderMode, PiIntegrationTestThinkingLevel } fr
 export interface PiProcessArgumentsOptions
 {
     readonly extensions: readonly string[];
+    readonly skills?: readonly string[];
+    readonly systemPrompt?: string;
+    readonly appendSystemPrompt?: readonly string[];
     readonly harnessExtension: string;
     readonly isolateUserResources: boolean;
     readonly model?: string;
@@ -25,6 +28,24 @@ export function createPiProcessArguments(options: PiProcessArgumentsOptions): st
     if (options.providerMode === "scripted" || options.isolateUserResources)
     {
         arguments_.push("--no-context-files", "--no-skills", "--no-prompt-templates", "--no-themes");
+    }
+
+    if (options.skills !== undefined)
+    {
+        arguments_.push(...options.skills.flatMap((skill) => ["--skill", skill]));
+    }
+
+    if (options.systemPrompt !== undefined)
+    {
+        arguments_.push("--system-prompt", options.systemPrompt);
+    }
+
+    if (options.appendSystemPrompt !== undefined)
+    {
+        for (const prompt of options.appendSystemPrompt)
+        {
+            arguments_.push("--append-system-prompt", prompt);
+        }
     }
 
     if (options.model !== undefined)

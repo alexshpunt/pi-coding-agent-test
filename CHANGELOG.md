@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.1 - 2026-08-20
+
+- Add explicit skills and system prompt settings to real Pi test scenarios.
+
 ## 0.1.0 - 2026-08-17
 
 - Added deterministic real-process testing for Pi extensions, tools, hooks, sessions, filesystem effects, and terminal output.

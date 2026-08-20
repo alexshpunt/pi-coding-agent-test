@@ -38,6 +38,41 @@ describe("Pi process arguments", () =>
         ]);
     });
 
+    it("loads explicit skills and system prompt settings", () =>
+    {
+        expect(createPiProcessArguments({
+            ...base,
+            appendSystemPrompt: ["Append one", "Append two"],
+            isolateUserResources: true,
+            providerMode: "user",
+            skills: ["/tmp/skill-a", "/tmp/skill-b/SKILL.md"],
+            systemPrompt: "Custom system prompt",
+        })).toEqual([
+            "--no-extensions",
+            "--extension",
+            "/tmp/harness-extension.mjs",
+            "--extension",
+            "/tmp/example-extension.mjs",
+            "--no-context-files",
+            "--no-skills",
+            "--no-prompt-templates",
+            "--no-themes",
+            "--skill",
+            "/tmp/skill-a",
+            "--skill",
+            "/tmp/skill-b/SKILL.md",
+            "--system-prompt",
+            "Custom system prompt",
+            "--append-system-prompt",
+            "Append one",
+            "--append-system-prompt",
+            "Append two",
+            "--session-dir",
+            "/tmp/session",
+            "--no-approve",
+        ]);
+    });
+
     it("preserves user resources unless user mode explicitly isolates them", () =>
     {
         expect(createPiProcessArguments({

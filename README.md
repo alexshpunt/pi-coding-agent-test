@@ -14,6 +14,10 @@ The test controls the initial prompt and scripted assistant responses. It does n
 
 Executable behavior contracts live in [`./test/`](./test/); demo scripts live in [`./scripts/`](./scripts/).
 
+## Scenario settings
+
+`PiIntegrationTest` supports explicit `skills`, `systemPrompt`, and `appendSystemPrompt` settings. Skills are loaded from the listed files or directories even though ambient skill discovery is disabled for isolated runs.
+
 ## Installation
 
 Install the test package:

@@ -116,6 +116,11 @@ export class PiIntegrationTest
                     piCommand: processOptions.piCommand ?? "pi",
                     harnessExtension,
                     extensions: processOptions.extensions ?? [],
+                    ...(processOptions.skills === undefined ? {} : { skills: processOptions.skills }),
+                    ...(processOptions.systemPrompt === undefined ? {} : { systemPrompt: processOptions.systemPrompt }),
+                    ...(processOptions.appendSystemPrompt === undefined
+                        ? {}
+                        : { appendSystemPrompt: processOptions.appendSystemPrompt }),
                     isolateUserResources: processOptions.isolateUserResources ?? false,
                     ...(processOptions.model === undefined
                         ? (providerMode === "scripted" ? { model: DEFAULT_MODEL } : {})

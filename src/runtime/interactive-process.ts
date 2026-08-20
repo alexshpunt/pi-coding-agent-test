@@ -24,6 +24,9 @@ export interface InteractiveProcessOptions
     readonly piCommand: string;
     readonly harnessExtension: string;
     readonly extensions: readonly string[];
+    readonly skills?: readonly string[];
+    readonly systemPrompt?: string;
+    readonly appendSystemPrompt?: readonly string[];
     readonly model?: string;
     readonly sessionDir: string;
     readonly configPath: string;
@@ -57,6 +60,9 @@ export async function runInteractiveProcess(options: InteractiveProcessOptions):
             extensions: options.extensions,
             harnessExtension: options.harnessExtension,
             isolateUserResources: options.isolateUserResources,
+            ...(options.skills === undefined ? {} : { skills: options.skills }),
+            ...(options.systemPrompt === undefined ? {} : { systemPrompt: options.systemPrompt }),
+            ...(options.appendSystemPrompt === undefined ? {} : { appendSystemPrompt: options.appendSystemPrompt }),
             ...(options.model === undefined ? {} : { model: options.model }),
             providerMode: options.providerMode,
             ...(options.thinking === undefined ? {} : { thinking: options.thinking }),

@@ -91,11 +91,14 @@ export async function writeRunBundle(
     const session = await readSession(runtime.sessionDirectory);
     const header: RunBundleRecord = {
         kind: "header",
-        version: 1,
+        version: 2,
         cwd,
         prompt,
         options: {
             extensions: options.extensions ?? [],
+            skills: options.skills ?? [],
+            systemPrompt: options.systemPrompt,
+            appendSystemPrompt: options.appendSystemPrompt ?? [],
             isolateUserResources: options.isolateUserResources ?? false,
             model: options.model ?? (options.providerMode === "user" ? null : DEFAULT_MODEL),
             piCommand: options.piCommand ?? "pi",

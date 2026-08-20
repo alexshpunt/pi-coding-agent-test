@@ -35,6 +35,10 @@ const harnessExtension = new URL(`../harness/extension.${runtimeExtension}`, imp
 interface ActiveConfiguration
 {
     readonly extensions: readonly string[];
+    readonly skills: readonly string[];
+    readonly systemPrompt: string | undefined;
+    readonly appendSystemPrompt: readonly string[];
+    readonly thinking: PiIntegrationTestOptions["thinking"];
     readonly piCommand: string;
     readonly model: string;
     readonly environment: NodeJS.ProcessEnv;
@@ -191,6 +195,10 @@ export class SharedPiProcess
         const readyPath = path.join(root, "ready.json");
         const configuration: ActiveConfiguration = {
             extensions: request.options.extensions ?? [],
+            skills: request.options.skills ?? [],
+            systemPrompt: request.options.systemPrompt,
+            appendSystemPrompt: request.options.appendSystemPrompt ?? [],
+            thinking: request.options.thinking,
             piCommand: request.options.piCommand ?? "pi",
             model: request.options.model ?? DEFAULT_MODEL,
             environment: request.options.environment ?? {},
@@ -212,10 +220,14 @@ export class SharedPiProcess
                 configuration.piCommand,
                 createPiProcessArguments({
                     extensions: configuration.extensions,
+                    skills: configuration.skills,
+                    ...(configuration.systemPrompt === undefined ? {} : { systemPrompt: configuration.systemPrompt }),
+                    appendSystemPrompt: configuration.appendSystemPrompt,
                     harnessExtension,
                     isolateUserResources: false,
                     model: configuration.model,
                     providerMode: "scripted",
+                    ...(configuration.thinking === undefined ? {} : { thinking: configuration.thinking }),
                     sessionDirectory,
                 }),
                 {
@@ -281,8 +293,12 @@ export class SharedPiProcess
 
         return active !== undefined
             && JSON.stringify(options.extensions ?? []) === JSON.stringify(active.extensions)
+            && JSON.stringify(options.skills ?? []) === JSON.stringify(active.skills)
+            && options.systemPrompt === active.systemPrompt
+            && JSON.stringify(options.appendSystemPrompt ?? []) === JSON.stringify(active.appendSystemPrompt)
             && (options.piCommand ?? "pi") === active.piCommand
             && (options.model ?? DEFAULT_MODEL) === active.model
+            && options.thinking === active.thinking
             && JSON.stringify(options.environment ?? {}) === JSON.stringify(active.environment);
     }
 }

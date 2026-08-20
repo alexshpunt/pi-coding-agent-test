@@ -110,6 +110,15 @@ export interface PiIntegrationTestOptions
     /** Extension files or package specifiers loaded after the harness extension. */
     readonly extensions?: readonly string[];
 
+    /** Skill files or directories loaded explicitly after discovery is disabled. */
+    readonly skills?: readonly string[];
+
+    /** Replace Pi's generated system prompt for this scenario. */
+    readonly systemPrompt?: string;
+
+    /** Text appended to Pi's generated system prompt. */
+    readonly appendSystemPrompt?: readonly string[];
+
     /** Active tool selection applied after all extensions load. */
     readonly tools?: ToolSelection;
 
