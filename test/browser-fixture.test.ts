@@ -1829,7 +1829,19 @@ async function readAllSignalableLinuxProcessIdentities(): Promise<LinuxProcessId
     const identities = await Promise.all(
         entries
             .filter((entry) => entry.isDirectory() && /^\d+$/u.test(entry.name))
-            .map(async (entry) => await readLinuxProcessIdentityIfSignalable(Number.parseInt(entry.name, 10))),
+            .map(async (entry) =>
+            {
+                try
+                {
+                    return await readLinuxProcessIdentityIfSignalable(Number.parseInt(entry.name, 10));
+                }
+                catch (error)
+                {
+                    const code = (error as NodeJS.ErrnoException).code;
+                    if (code === "EACCES" || code === "EPERM") return undefined;
+                    throw error;
+                }
+            }),
     );
 
     return identities.filter((identity): identity is LinuxProcessIdentity => identity !== undefined);
