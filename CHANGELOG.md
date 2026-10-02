@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.2 - 2026-10-02
+
+- Add isolated browser fixtures with bounded cleanup and clean-package install checks.
+- Add headless RPC scenarios, effective system prompt capture and custom terminal sizes.
+- Pool shared Pi processes by configuration and preserve active tool selections.
+- Keep partial run artifacts after failures and timeouts.
+- Support Pi 0.99.1 raw rendering and reliable native Windows launch and complete PTY cleanup.
+- Move development and CI releases to the public repository; publish the validated tarball through npm OIDC.
+
 ## 0.1.1 - 2026-08-20
 
 - Add explicit skills and system prompt settings to real Pi test scenarios.

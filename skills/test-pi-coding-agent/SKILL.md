@@ -61,7 +61,7 @@ Use structured accessors for data contracts:
 
 - `getToolCallNames`, `getToolExecution`, `getToolExecutions`;
 - `getToolResultText`, `getToolExecutionResult`, `getToolExecutionDetails`;
-- `getProviderSystemPrompt`, `result.traceEvents`, `result.providerRequests`;
+- `getSystemPrompt`, `getProviderSystemPrompt`, `result.traceEvents`, `result.providerRequests`;
 - `result.messages`, `result.state`, and `result.exitCode`.
 
 Use external effects when they are the contract: file contents, directories, diagnostics, generated resources, tool

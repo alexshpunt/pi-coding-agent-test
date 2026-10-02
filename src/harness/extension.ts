@@ -1,5 +1,7 @@
 import { appendFileSync, readFileSync } from "node:fs";
 
+import { getCurrentSystemPrompt } from "@earendil-works/pi-ai";
+
 import {
     HARNESS_CONFIG_ENVIRONMENT,
     HARNESS_READY_ENVIRONMENT,
@@ -49,6 +51,7 @@ function trace(type: string, value: Record<string, unknown> = {}): void
         type,
         sequence: sequence++,
         timestamp: Date.now(),
+        monotonicMs: Number(process.hrtime.bigint()) / 1e6,
         ...value,
     };
     appendFileSync(traceFile, JSON.stringify(event) + "\n", "utf8");
@@ -112,15 +115,16 @@ export default function registerHarness(pi: ExtensionAPI): void
         }
 
         const allTools = (pi.getAllTools() as { name: string; }[]).map((tool) => tool.name);
+        const sessionTools = pi.getActiveTools();
 
         const objectSelection = isToolSelectionObject(selection) ? selection : undefined;
         const includedTools = objectSelection?.include;
         const activeTools = selection === "all"
-            ? allTools
+            ? sessionTools
             : isToolNameArray(selection)
             ? [...selection]
             : includedTools === undefined
-            ? allTools
+            ? sessionTools
             : allTools.filter((name) => includedTools.includes(name));
         const excludedTools = objectSelection?.exclude;
         const filteredTools = excludedTools === undefined
@@ -185,9 +189,9 @@ export default function registerHarness(pi: ExtensionAPI): void
         tracePiEvent("turn_end", event);
     });
 
-    pi.on("agent_start", (event) =>
+    pi.on("agent_start", (event, ctx) =>
     {
-        tracePiEvent("agent_start", event);
+        trace("agent_start", { event, systemPrompt: ctx.getSystemPrompt(), activeTools: pi.getActiveTools() });
     });
 
     pi.on("agent_end", (event) =>
@@ -284,7 +288,7 @@ export default function registerHarness(pi: ExtensionAPI): void
                 request,
                 messageCount: context.messages.length,
                 messages: context.messages,
-                systemPrompt: context.systemPrompt,
+                systemPrompt: getCurrentSystemPrompt(context.messages),
             });
 
             if (!scenario)

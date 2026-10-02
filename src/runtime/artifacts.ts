@@ -1,7 +1,9 @@
-import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import { DEFAULT_MODEL, DEFAULT_TIMEOUT_MS } from "./constants.js";
+import { DEFAULT_MODEL, DEFAULT_TIMEOUT_MS, DEFAULT_TUI_SIZE } from "./constants.js";
+import { isRunTimeout } from "./timeout-error.js";
+import { getSessionSnapshot, readTrace } from "./trace.js";
 
 import type {
     PiIntegrationTestArtifacts,
@@ -86,6 +88,7 @@ export async function writeRunBundle(
     options: PiIntegrationTestOptions,
     prompt: string,
     result: PiIntegrationTestResult,
+    outcome: { status: "settled" | "timeout" | "error"; startedMonotonicMs: number; endedMonotonicMs: number; },
 ): Promise<void>
 {
     const session = await readSession(runtime.sessionDirectory);
@@ -103,6 +106,7 @@ export async function writeRunBundle(
             model: options.model ?? (options.providerMode === "user" ? null : DEFAULT_MODEL),
             piCommand: options.piCommand ?? "pi",
             providerMode: options.providerMode ?? "scripted",
+            transport: options.transport ?? "tui",
             rawMode: options.rawMode ?? options.providerMode !== "user",
             thinking: options.thinking ?? null,
             timeoutMs: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
@@ -120,6 +124,8 @@ export async function writeRunBundle(
     records.push({ kind: "terminal", data: result.terminalOutput });
     records.push({
         kind: "summary",
+        ...outcome,
+        partial: outcome.status !== "settled",
         exitCode: result.exitCode,
         state: result.state === undefined ? undefined : { ...result.state, sessionFile: undefined },
         tuiSize: result.tuiSize,
@@ -132,6 +138,40 @@ export async function writeRunBundle(
     }
 
     await writeFile(artifacts.run, `${records.map((record) => JSON.stringify(record)).join("\n")}\n`, "utf8");
+}
+
+/** Save completed trace records on failure, retaining the raw tail for diagnosis. */
+export async function writePartialRunBundle(
+    artifacts: PiIntegrationTestArtifacts,
+    runtime: PiIntegrationTestRuntimeArtifacts,
+    cwd: string,
+    options: PiIntegrationTestOptions,
+    prompt: string,
+    error: unknown,
+    startedMonotonicMs: number,
+): Promise<void>
+{
+    await copyFile(runtime.trace, path.join(artifacts.directory, "partial-trace.jsonl"));
+    const traceEvents = await readTrace(runtime.trace, true);
+    const snapshot = getSessionSnapshot(traceEvents);
+    const terminalOutput = await readFile(runtime.terminalOutput, "utf8").catch(() => "");
+    const tuiRenderedOutput = await readFile(artifacts.tuiRenderedOutput, "utf8").catch(() => "");
+    await writeRunBundle(artifacts, runtime, cwd, options, prompt, {
+        artifacts,
+        traceEvents,
+        providerRequests: traceEvents.filter((event) => event.type === "provider_request"),
+        messages: snapshot?.messages ?? [],
+        state: snapshot?.state,
+        terminalOutput,
+        tuiRenderedOutput,
+        tuiSize: DEFAULT_TUI_SIZE,
+        frameDelaysMs: [],
+        exitCode: null,
+    }, {
+        status: isRunTimeout(error) ? "timeout" : "error",
+        startedMonotonicMs,
+        endedMonotonicMs: Number(process.hrtime.bigint()) / 1e6,
+    });
 }
 
 export async function writeIntegrationTestError(

@@ -1,9 +1,15 @@
 import { randomBytes } from "node:crypto";
 import { createServer, type Server, type Socket } from "node:net";
 
-import { SharedPiProcess } from "./shared-pi-process.js";
+import { SharedPiProcess, sharedRunnerConfigKey } from "./shared-pi-process.js";
 
 import type { SharedRunnerEndpoint, SharedRunRequest, SharedRunResponse } from "./protocol.js";
+
+interface PooledRunner
+{
+    readonly pi: SharedPiProcess;
+    queue: Promise<void>;
+}
 
 interface SharedRunner
 {
@@ -23,38 +29,25 @@ export async function startSharedRunner(): Promise<{
         return { endpoint: runner.endpoint, teardown: runner.close };
     }
 
-    const sharedPi = new SharedPiProcess();
+    // One Pi process per distinct configuration; requests for different
+    // configurations run in parallel, requests for one configuration queue up.
+    const pool = new Map<string, PooledRunner>();
     const token = randomBytes(24).toString("hex");
-    let requestQueue = Promise.resolve();
-
     const server = createServer((socket) =>
     {
         handleConnection(socket, (request) =>
         {
-            requestQueue = requestQueue.then(async () =>
-            {
-                try
-                {
-                    const result = await executeRequest(request, token, sharedPi);
-                    sendResponse(socket, { requestId: request.requestId, result });
-                }
-                catch (error)
-                {
-                    sendResponse(socket, {
-                        requestId: request.requestId,
-                        error: error instanceof Error ? error.stack ?? error.message : String(error),
-                    });
-                }
-
-                return;
-            });
+            enqueueRequest(pool, socket, request, token);
         });
     });
     const endpoint = await listen(server, token);
 
     const cancelLiveOutput = (): void =>
     {
-        sharedPi.cancelLiveOutput();
+        for (const pooled of pool.values())
+        {
+            pooled.pi.cancelLiveOutput();
+        }
     };
     process.on("SIGINT", cancelLiveOutput);
     process.on("SIGTERM", cancelLiveOutput);
@@ -74,16 +67,53 @@ export async function startSharedRunner(): Promise<{
 
         try
         {
-            await sharedPi.close();
+            await Promise.all([...pool.values()].map((pooled) => pooled.pi.close()));
         }
         finally
         {
+            pool.clear();
             await closeServer(server);
         }
     };
 
     runner = { endpoint, close };
     return { endpoint, teardown: close };
+}
+
+function enqueueRequest(
+    pool: Map<string, PooledRunner>,
+    socket: Socket,
+    request: SharedRunRequest,
+    token: string,
+): void
+{
+    const key = sharedRunnerConfigKey(request.options);
+    let pooled = pool.get(key);
+
+    if (pooled === undefined)
+    {
+        pooled = { pi: new SharedPiProcess(), queue: Promise.resolve() };
+        pool.set(key, pooled);
+    }
+
+    const runner = pooled;
+    runner.queue = runner.queue.then(async () =>
+    {
+        try
+        {
+            const result = await executeRequest(request, token, runner.pi);
+            sendResponse(socket, { requestId: request.requestId, result });
+        }
+        catch (error)
+        {
+            sendResponse(socket, {
+                requestId: request.requestId,
+                error: error instanceof Error ? error.stack ?? error.message : String(error),
+            });
+        }
+
+        return;
+    });
 }
 
 function handleConnection(socket: Socket, enqueue: (request: SharedRunRequest) => void): void

@@ -27,6 +27,8 @@ test("keeps Pi's native tool renderer for terminal assertions", async () =>
 
     const result = await new PiIntegrationTest({
         testName: "native-tui",
+        ...(process.env.PI_COMMAND === undefined ? {} : { piCommand: process.env.PI_COMMAND }),
+        isolateUserResources: true,
         artifactsDir: testArtifactsDir(import.meta.filename),
         cwd: workspace,
         rawMode: false,

@@ -1,13 +1,13 @@
 import { writeFile } from "node:fs/promises";
 import { performance } from "node:perf_hooks";
 
-import { type IPty, spawn } from "node-pty";
-
 import { createLiveTuiOutput } from "../terminal/live-output.js";
 import { TuiRenderer } from "../terminal/renderer.js";
 import { SynchronizedFrameExtractor } from "../terminal/synchronized-output.js";
 
 import { DEFAULT_TUI_SIZE, HARNESS_CONFIG_ENVIRONMENT, HARNESS_TRACE_ENVIRONMENT } from "./constants.js";
+import { spawnOwnedPty } from "./owned-pty.js";
+import { resolvePiCommand } from "./pi-command.js";
 import { createPiProcessArguments } from "./pi-process.js";
 import { delay, readTrace, waitForAgentSettledTrace, waitForSettledTrace } from "./trace.js";
 
@@ -17,9 +17,11 @@ import type {
     TraceEvent,
     TuiSize,
 } from "../scenario/types.js";
+import type { IPty } from "node-pty";
 
 export interface InteractiveProcessOptions
 {
+    readonly tuiSize?: TuiSize;
     readonly cwd: string;
     readonly piCommand: string;
     readonly harnessExtension: string;
@@ -54,7 +56,8 @@ export interface InteractiveProcessResult
 
 export async function runInteractiveProcess(options: InteractiveProcessOptions): Promise<InteractiveProcessResult>
 {
-    const pty = spawn(
+    const tuiSize = options.tuiSize ?? DEFAULT_TUI_SIZE;
+    const launch = resolvePiCommand(
         options.piCommand,
         createPiProcessArguments({
             extensions: options.extensions,
@@ -69,9 +72,14 @@ export async function runInteractiveProcess(options: InteractiveProcessOptions):
             prompt: options.prompt,
             sessionDirectory: options.sessionDir,
         }),
+        { ...process.env, ...options.environment },
+    );
+    const pty = await spawnOwnedPty(
+        launch.command,
+        launch.arguments,
         {
             cwd: options.cwd,
-            ...DEFAULT_TUI_SIZE,
+            ...tuiSize,
             name: "xterm-256color",
             env: {
                 ...process.env,
@@ -79,10 +87,11 @@ export async function runInteractiveProcess(options: InteractiveProcessOptions):
                 [HARNESS_CONFIG_ENVIRONMENT]: options.configPath,
                 [HARNESS_TRACE_ENVIRONMENT]: options.tracePath,
             },
-            encoding: "utf8",
+            ...(process.platform === "win32" ? {} : { encoding: "utf8" }),
         },
+        options.timeoutMs,
     );
-    const tuiRenderer = new TuiRenderer(DEFAULT_TUI_SIZE);
+    const tuiRenderer = new TuiRenderer(tuiSize);
     const liveTuiOutput = createLiveTuiOutput();
     const frameExtractor = new SynchronizedFrameExtractor();
     const frameDelaysMs: number[] = [];
@@ -113,22 +122,20 @@ export async function runInteractiveProcess(options: InteractiveProcessOptions):
 
     try
     {
-        if (options.providerMode === "user")
-        {
-            await waitForAgentSettledTrace(options.tracePath, options.timeoutMs);
-        }
-        else
-        {
-            await waitForSettledTrace(
-                options.tracePath,
-                options.expectedProviderRequestCount,
-                options.timeoutMs,
-            );
-        }
+        await Promise.race([
+            options.providerMode === "user"
+                ? waitForAgentSettledTrace(options.tracePath, options.timeoutMs)
+                : waitForSettledTrace(options.tracePath, options.expectedProviderRequestCount, options.timeoutMs),
+            exit.then((code) =>
+            {
+                throw new Error(`Interactive Pi exited before settling with code ${code}`);
+            }),
+        ]);
 
         await delay(50);
-        pty.kill("SIGTERM");
+        stopPty(pty);
 
+        await pty.dispose();
         const exitCode = await exit;
         await liveTuiOutput?.flush();
         const tuiRenderedOutput = await writeTuiRenderedOutput(tuiRenderer, options.tuiRenderedOutputPath);
@@ -138,14 +145,15 @@ export async function runInteractiveProcess(options: InteractiveProcessOptions):
             terminalOutput,
             frameDelaysMs,
             tuiRenderedOutput,
-            tuiSize: DEFAULT_TUI_SIZE,
+            tuiSize,
             traceEvents: await readTrace(options.tracePath),
             exitCode,
         };
     }
     catch (error)
     {
-        pty.kill("SIGTERM");
+        stopPty(pty);
+        await pty.dispose();
         await exit.catch(() =>
         {});
         await liveTuiOutput?.flush().catch(() =>
@@ -158,8 +166,20 @@ export async function runInteractiveProcess(options: InteractiveProcessOptions):
             `Interactive Pi did not settle within ${options.timeoutMs}ms.\nTerminal output:\n${terminalOutput}\n${
                 error instanceof Error ? error.message : String(error)
             }`,
+            { cause: error },
         );
     }
+}
+
+export function stopPty(pty: Pick<IPty, "kill">, platform: NodeJS.Platform = process.platform): void
+{
+    if (platform === "win32")
+    {
+        pty.kill();
+        return;
+    }
+
+    pty.kill("SIGTERM");
 }
 
 async function writeTuiRenderedOutput(renderer: TuiRenderer, outputPath: string): Promise<string>
@@ -177,7 +197,7 @@ async function writeTuiRenderedOutput(renderer: TuiRenderer, outputPath: string)
     }
 }
 
-function waitForExit(pty: IPty): Promise<number | null>
+function waitForExit(pty: Pick<IPty, "onExit">): Promise<number | null>
 {
     return new Promise((resolve) =>
     {
