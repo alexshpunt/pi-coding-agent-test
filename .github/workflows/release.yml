@@ -72,3 +72,9 @@ jobs:
                   cd .tmp/release
                   sha256sum --check SHA256SUMS
                   npm publish *.tgz --ignore-scripts --access public --provenance
+            - name: Verify registry and clean install
+              run: |
+                  node scripts/verify-published-package.mjs .tmp/release/*.tgz
+                  version=$(node -p 'require("./package.json").version')
+                  npm install --prefix .tmp/registry-install --omit=dev --no-save --package-lock=false "pi-coding-agent-test@$version" --registry https://registry.npmjs.org
+                  node .tmp/registry-install/node_modules/pi-coding-agent-test/dist/cli.mjs --help
