@@ -1,4 +1,6 @@
 import { spawn } from "node:child_process";
+import fs from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
 import { access, readFile, readlink, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 
@@ -33,6 +35,9 @@ const signalAttempts = [];
 const originalProcessKill = process.kill;
 const unrelatedSignalPath = path.join(root, "unrelated-signal.txt");
 let status;
+const originalReadlink = fs.promises.readlink;
+const originalStat = fs.promises.stat;
+let deniedZombieExecutableReads = 0;
 
 try
 {
@@ -85,12 +90,41 @@ try
     };
     processKillPatched = true;
     reaperPulse = setInterval(() => originalProcessKill.call(process, process.pid, "SIGCHLD"), 10);
+    fs.promises.readlink = async (target, ...args) =>
+    {
+        if (target === `/proc/${ownedRoot.pid}/exe`)
+        {
+            const text = await readFile(`/proc/${ownedRoot.pid}/stat`, "utf8");
+            if (text.slice(text.lastIndexOf(")") + 2).startsWith("Z "))
+            {
+                deniedZombieExecutableReads++;
+                throw Object.assign(new Error("Zombie executable access denied"), { code: "EACCES" });
+            }
+        }
+        return await originalReadlink(target, ...args);
+    };
+    fs.promises.stat = async (target, ...args) =>
+    {
+        if (target === `/proc/${ownedRoot.pid}/exe`)
+        {
+            const text = await readFile(`/proc/${ownedRoot.pid}/stat`, "utf8");
+            if (text.slice(text.lastIndexOf(")") + 2).startsWith("Z "))
+            {
+                throw Object.assign(new Error("Zombie executable access denied"), { code: "EACCES" });
+            }
+        }
+        return await originalStat(target, ...args);
+    };
+    syncBuiltinESMExports();
     const closeStartedAt = performance.now();
     const closeOutcome = await fixture.close().then(
         () => ({ status: "fulfilled", error: "" }),
         (error) => ({ status: "rejected", error: describeError(error) }),
     );
     const closeElapsedMs = performance.now() - closeStartedAt;
+    fs.promises.readlink = originalReadlink;
+    fs.promises.stat = originalStat;
+    syncBuiltinESMExports();
     const stateAfterClose = await readGenerationState(ownedRoot);
     const unrelatedAfterClose = {
         alive: await generationExists(unrelatedIdentity),
@@ -110,6 +144,7 @@ try
     status = {
         closeElapsedMs,
         closeOutcome,
+        deniedZombieExecutableReads,
         fixtureDirectoryGone,
         generation: ownedRoot,
         signalAttempts,
@@ -122,6 +157,9 @@ try
 }
 finally
 {
+    fs.promises.stat = originalStat;
+    fs.promises.readlink = originalReadlink;
+    syncBuiltinESMExports();
     if (reaperPulse !== undefined)
     {
         clearInterval(reaperPulse);

@@ -943,8 +943,11 @@ describe("browser fixture behavior", () =>
             }, browserCleanupBoundMs * 4);
             expect(result.code, result.stderr).toBe(0);
             console.log(`ALE-44 zombie exit evidence: ${result.stdout.trim()}`);
-            const status = JSON.parse(result.stdout) as ZombieExitBoundaryStatus;
+            const status = JSON.parse(result.stdout) as ZombieExitBoundaryStatus & {
+                deniedZombieExecutableReads: number;
+            };
 
+            expect(status.deniedZombieExecutableReads).toBeGreaterThan(0);
             expect(status.closeOutcome.status).toBe("rejected");
             expect(status.closeOutcome.error).toMatch(/close.*timed out|timeout/iu);
             expect(status.generation.pid).toBeGreaterThan(0);

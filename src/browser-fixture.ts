@@ -1316,6 +1316,18 @@ async function readLinuxProcessIdentityIfPresent(pid: number): Promise<LinuxProc
             return undefined;
         }
 
+        if (code === "EACCES" || code === "EPERM")
+        {
+            const generation = await readLinuxProcessGenerationIfPresent(pid);
+
+            // A zombie has no usable executable identity. Generation-based exit
+            // checks still retain it until its parent reaps it; never signal it.
+            if (generation === undefined || generation.state === "Z")
+            {
+                return undefined;
+            }
+        }
+
         throw error;
     }
 }
