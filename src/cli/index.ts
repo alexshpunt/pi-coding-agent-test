@@ -1,4 +1,5 @@
 import path from "node:path";
+import { inspect } from "node:util";
 
 import { runLiveCommand } from "./live.js";
 import { runReplayCommand } from "./replay.js";
@@ -82,8 +83,18 @@ try
 }
 catch (error)
 {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = error instanceof AggregateError
+        ? inspect(error, { depth: null, colors: false })
+        : error instanceof Error
+        ? error.message
+        : String(error);
     process.stderr.write(`pi-test: ${message}\n`);
+
+    if (error instanceof AggregateError)
+    {
+        process.stderr.write(`Active resources after failure: ${JSON.stringify(process.getActiveResourcesInfo())}\n`);
+    }
+
     process.exitCode = 1;
 }
 

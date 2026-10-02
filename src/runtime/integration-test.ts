@@ -1,6 +1,7 @@
 import { access, mkdtemp, rm, symlink } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { withInteractivePacing } from "../live/pacing.js";
 import { getSharedRunnerEndpoint, runSharedIntegrationProcess } from "../shared-runner/client.js";
@@ -11,6 +12,7 @@ import {
     prepareIntegrationTestArtifacts,
     removeIntegrationTestRuntimeArtifacts,
     writeIntegrationTestError,
+    writePartialRunBundle,
     writeRunBundle,
 } from "./artifacts.js";
 import {
@@ -19,18 +21,18 @@ import {
     RAW_TOOL_OUTPUT_ENVIRONMENT,
     RAW_TOOL_OUTPUT_READY_ENVIRONMENT,
 } from "./constants.js";
-import { runInteractiveProcess } from "./interactive-process.js";
+import { runRpcProcess } from "./rpc-process.js";
 import { PiRun } from "./run.js";
 import { getSessionSnapshot } from "./trace.js";
 
 import type { PiIntegrationTestOptions, PiIntegrationTestResult } from "../scenario/types.js";
 
 const runtimeExtension = import.meta.url.endsWith(".ts") ? "ts" : "js";
-const harnessExtension = new URL(`../harness/extension.${runtimeExtension}`, import.meta.url).pathname;
+const harnessExtension = fileURLToPath(new URL(`../harness/extension.${runtimeExtension}`, import.meta.url));
 const rawToolOutputPreload = new URL("../harness/raw-tool-output-preload.mjs", import.meta.url).href;
 
 /**
- * Runs one scenario through a real interactive Pi process.
+ * Runs one scenario through a real Pi process using TUI (default) or RPC pipes.
  *
  * @example
  * ```ts
@@ -57,9 +59,14 @@ export class PiIntegrationTest
      *
      * The run recreates its stable artifact directory and throws after writing `error.log`
      * when Pi cannot start, the scripted conversation is exhausted, or the timeout expires.
+     * Failed runs also retain a partial `run.jsonl` and the raw trace. Its summary marks
+     * `status: timeout | error` and `partial: true`; it is never a successful settlement.
+     * If bundling fails, the raw runtime directory is kept instead of deleting evidence.
      */
     public async run(prompt: string): Promise<PiRun>
     {
+        const startedMonotonicMs = Number(process.hrtime.bigint()) / 1e6;
+        let bundleWritten = false;
         const cwd = this.options.cwd ?? process.cwd();
         const providerMode = this.options.providerMode ?? "scripted";
         const conversation = this.options.conversation ?? [];
@@ -69,10 +76,11 @@ export class PiIntegrationTest
             throw new Error("Scripted integration tests require a conversation");
         }
 
-        const interactiveOptions = providerMode === "scripted"
+        const interactiveOptions = providerMode === "scripted" && this.options.transport !== "rpc"
             ? withInteractivePacing(this.options)
             : this.options;
-        const rawMode = interactiveOptions.rawMode ?? providerMode === "scripted";
+        const rawMode = this.options.transport !== "rpc"
+            && (interactiveOptions.rawMode ?? providerMode === "scripted");
         const runtimeOptions: PiIntegrationTestOptions = {
             ...interactiveOptions,
             conversation,
@@ -89,7 +97,9 @@ export class PiIntegrationTest
         };
         const artifacts = createIntegrationTestArtifacts(this.options);
         const runtime = createIntegrationTestRuntimeArtifacts(artifacts);
-        const useStandaloneRunner = providerMode === "user"
+        const useStandaloneRunner = this.options.tuiSize !== undefined
+            || this.options.transport === "rpc"
+            || providerMode === "user"
             || getSharedRunnerEndpoint() === undefined
             || isSameOrDescendant(cwd, artifacts.directory);
         await prepareIntegrationTestArtifacts({ artifacts, runtime, options: runtimeOptions });
@@ -110,14 +120,25 @@ export class PiIntegrationTest
                         PI_CODING_AGENT_DIR: isolatedAgentDirectory,
                     },
                 };
+            let runStandalone = runRpcProcess;
+
+            if (useStandaloneRunner && processOptions.transport !== "rpc")
+            {
+                const { runInteractiveProcess } = await import("./interactive-process.js");
+                runStandalone = runInteractiveProcess;
+            }
+
             const processResult = useStandaloneRunner
-                ? await runInteractiveProcess({
+                ? await runStandalone({
                     cwd,
                     piCommand: processOptions.piCommand ?? "pi",
+                    ...(processOptions.tuiSize === undefined ? {} : { tuiSize: processOptions.tuiSize }),
                     harnessExtension,
                     extensions: processOptions.extensions ?? [],
                     ...(processOptions.skills === undefined ? {} : { skills: processOptions.skills }),
-                    ...(processOptions.systemPrompt === undefined ? {} : { systemPrompt: processOptions.systemPrompt }),
+                    ...(processOptions.systemPrompt === undefined
+                        ? {}
+                        : { systemPrompt: processOptions.systemPrompt }),
                     ...(processOptions.appendSystemPrompt === undefined
                         ? {}
                         : { appendSystemPrompt: processOptions.appendSystemPrompt }),
@@ -132,7 +153,9 @@ export class PiIntegrationTest
                     tracePath: runtime.trace,
                     tuiRenderedOutputPath: artifacts.tuiRenderedOutput,
                     terminalOutputPath: runtime.terminalOutput,
-                    ...(processOptions.environment === undefined ? {} : { environment: processOptions.environment }),
+                    ...(processOptions.environment === undefined
+                        ? {}
+                        : { environment: processOptions.environment }),
                     prompt,
                     timeoutMs: processOptions.timeoutMs ?? DEFAULT_TIMEOUT_MS,
                     expectedProviderRequestCount: conversation.length,
@@ -158,12 +181,31 @@ export class PiIntegrationTest
                 exitCode: processResult.exitCode,
             };
 
-            await writeRunBundle(artifacts, runtime, cwd, runtimeOptions, prompt, result);
+            await writeRunBundle(artifacts, runtime, cwd, runtimeOptions, prompt, result, {
+                status: "settled",
+                startedMonotonicMs,
+                endedMonotonicMs: Number(process.hrtime.bigint()) / 1e6,
+            });
+            bundleWritten = true;
             return PiRun.fromResult(result);
         }
         catch (error)
         {
             await writeIntegrationTestError(artifacts, error);
+
+            try
+            {
+                await writePartialRunBundle(artifacts, runtime, cwd, runtimeOptions, prompt, error, startedMonotonicMs);
+                bundleWritten = true;
+            }
+            catch (artifactError)
+            {
+                throw new AggregateError(
+                    [error, artifactError],
+                    "Pi failed; raw runtime artifacts retained because bundling failed",
+                );
+            }
+
             throw error;
         }
         finally
@@ -173,7 +215,10 @@ export class PiIntegrationTest
                 await rm(isolatedAgentDirectory, { recursive: true, force: true });
             }
 
-            await removeIntegrationTestRuntimeArtifacts(runtime);
+            if (bundleWritten)
+            {
+                await removeIntegrationTestRuntimeArtifacts(runtime);
+            }
         }
     }
 }

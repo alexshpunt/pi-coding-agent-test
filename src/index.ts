@@ -41,6 +41,14 @@ export {
 
 export { testArtifactsDir } from "./runtime/artifacts.js";
 
+export {
+    type BrowserFixture,
+    type BrowserFixtureOptions,
+    type BrowserFixtureWaitOptions,
+    createBrowserFixture,
+    withBrowserFixture,
+} from "./browser-fixture.js";
+
 export { PiIntegrationTest } from "./runtime/integration-test.js";
 
 export { PiRun } from "./runtime/run.js";
@@ -48,6 +56,7 @@ export { PiRun } from "./runtime/run.js";
 export {
     getProviderRequestLastMessageText,
     getProviderSystemPrompt,
+    getSystemPrompt,
     getToolCallNames,
     getToolExecution,
     getToolExecutionDetails,

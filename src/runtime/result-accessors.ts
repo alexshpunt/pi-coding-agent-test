@@ -1,4 +1,4 @@
-import { contentText, type ToolResultMessage } from "@earendil-works/pi-ai";
+import { contentText, type JsonValue, type ToolResultMessage } from "@earendil-works/pi-ai";
 
 import type { PiIntegrationTestResult, TraceEvent } from "../scenario/types.js";
 
@@ -42,7 +42,7 @@ export function getToolCallNames(result: PiIntegrationTestInspection): readonly 
 }
 
 /** Return the latest real tool-result message, optionally restricted to one call ID. */
-export function getToolResultMessage<TDetails = unknown>(
+export function getToolResultMessage<TDetails = JsonValue>(
     result: PiIntegrationTestInspection,
     toolCallId?: string,
 ): ToolResultMessage<TDetails>
@@ -67,7 +67,25 @@ export function getToolResultText(result: PiIntegrationTestInspection, toolCallI
     return contentText(getToolResultMessage(result, toolCallId).content);
 }
 
-/** Return the system prompt captured before the first real provider request. */
+/**
+ * Return the final effective Pi system prompt captured when the agent started.
+ *
+ * Saved runs from older versions fall back to the first scripted provider request.
+ */
+export function getSystemPrompt(result: PiIntegrationTestInspection): string
+{
+    const agentStart = result.traceEvents.find((event) => event.type === "agent_start");
+    const prompt = agentStart?.systemPrompt;
+
+    if (typeof prompt === "string")
+    {
+        return prompt;
+    }
+
+    return getProviderSystemPrompt(result);
+}
+
+/** Return the system prompt captured before the selected real provider request. */
 export function getProviderSystemPrompt(result: PiIntegrationTestInspection, requestIndex = 0): string
 {
     const prompt = result.providerRequests.at(requestIndex)?.systemPrompt;
@@ -173,7 +191,7 @@ export function getProviderRequestLastMessageText(request: TraceEvent): string
     return "";
 }
 
-function isToolResultMessage(value: unknown): value is ToolResultMessage<unknown>
+function isToolResultMessage(value: unknown): value is ToolResultMessage
 {
     return isRecord(value)
         && value.role === "toolResult"

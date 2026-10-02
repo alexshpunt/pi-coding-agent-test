@@ -101,6 +101,12 @@ export interface PiIntegrationTestOptions
     /** Stable artifact directory name. Unsafe filename characters are replaced with `-`. */
     readonly testName: string;
 
+    /** PTY dimensions. Custom sizes use a standalone Pi process. Defaults to 160 by 50. */
+    readonly tuiSize?: TuiSize;
+
+    /** Process transport. Defaults to `tui`; `rpc` uses pipes without a terminal or frame capture. */
+    readonly transport?: "tui" | "rpc";
+
     /** Working directory for Pi and every real tool execution. Defaults to `process.cwd()`. */
     readonly cwd?: string;
 
@@ -119,7 +125,7 @@ export interface PiIntegrationTestOptions
     /** Text appended to Pi's generated system prompt. */
     readonly appendSystemPrompt?: readonly string[];
 
-    /** Active tool selection applied after all extensions load. */
+    /** Active tool selection. Omitted or "all" preserves the session's active tools; exclude-only selections filter that set. Explicit names can enable registered inactive tools. */
     readonly tools?: ToolSelection;
 
     /** Successive assistant messages used in `scripted` mode. */
@@ -171,6 +177,9 @@ export interface TraceEvent
 
     /** Wall-clock time in Unix milliseconds. */
     readonly timestamp: number;
+
+    /** Host monotonic milliseconds for elapsed-time comparisons; absent in older traces. */
+    readonly monotonicMs?: number;
 
     /** Event-specific data recorded by the harness. */
     readonly [key: string]: unknown;
@@ -257,7 +266,7 @@ export interface PiIntegrationTestResult
     /** All ordered harness events. */
     readonly traceEvents: readonly TraceEvent[];
 
-    /** System prompt captured before the first real provider request. */
+    /** Provider requests captured during the run. */
     readonly providerRequests: readonly TraceEvent[];
 
     /** Messages reconstructed from the final real session branch. */

@@ -74,16 +74,19 @@
         "typecheck": "npm run build && tsc --noEmit -p tsconfig.json --incremental --tsBuildInfoFile .tmp/tsconfig.tsbuildinfo",
         "check": "npm run format:check && npm run lint && npm run typecheck && npm run test:unit",
         "prepack": "npm run build",
-        "prepublishOnly": "npm run check"
+        "prepublishOnly": "npm run check",
+        "browser:install": "playwright install chromium",
+        "browser:install:with-deps": "playwright install --with-deps chromium"
     },
     "dependencies": {
-        "@earendil-works/pi-ai": "latest",
+        "@earendil-works/pi-ai": "0.99.1",
         "@xterm/headless": "^6.0.0",
         "cross-spawn": "^7.0.6",
-        "node-pty": "^1.1.0"
+        "node-pty": "^1.1.0",
+        "playwright": "1.62.1"
     },
     "devDependencies": {
-        "@earendil-works/pi-coding-agent": "latest",
+        "@earendil-works/pi-coding-agent": "0.99.1",
         "@eslint/js": "^9.39.5",
         "@types/cross-spawn": "^6.0.6",
         "@types/node": "^24.0.4",

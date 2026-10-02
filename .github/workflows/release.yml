@@ -1,0 +1,74 @@
+name: npm release
+
+on:
+    release:
+        types: [published]
+    workflow_dispatch:
+    pull_request:
+    push:
+        branches: [main, develop]
+
+concurrency:
+    group: npm-release
+    cancel-in-progress: false
+
+permissions:
+    contents: read
+
+jobs:
+    runtime:
+        uses: ./.github/workflows/runtime.yml
+    validate:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: "24"
+            - run: npm ci
+            - run: npm run browser:install:with-deps
+            - run: npm run check
+            - run: node test/fixtures/verify-browser-package-consumers.mjs preflight
+            - run: node test/fixtures/verify-browser-package-consumers.mjs pack
+            - run: npm run test:integration
+            - name: Pack the validated release
+              run: |
+                  mkdir -p .tmp/release
+                  npm pack --ignore-scripts --pack-destination .tmp/release
+                  mkdir -p .tmp/repack
+                  npm pack --ignore-scripts --pack-destination .tmp/repack
+                  cmp .tmp/release/*.tgz .tmp/repack/*.tgz
+                  cd .tmp/release
+                  sha256sum *.tgz > SHA256SUMS
+            - uses: actions/upload-artifact@v4
+              with:
+                  name: npm-release
+                  include-hidden-files: true
+                  path: .tmp/release
+    publish:
+        if: github.event_name == 'release'
+        needs: [validate, runtime]
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            id-token: write
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: "24"
+                  registry-url: https://registry.npmjs.org
+            - run: npm install --global npm@latest
+            - name: Check release tag
+              env:
+                  RELEASE_TAG: ${{ github.event.release.tag_name }}
+              run: node -e 'const p=require("./package.json"); if(process.env.RELEASE_TAG !== `v${p.version}`) throw Error("Tag and package version differ")'
+            - uses: actions/download-artifact@v4
+              with:
+                  name: npm-release
+                  path: .tmp/release
+            - name: Publish the checked tarball
+              run: |
+                  cd .tmp/release
+                  sha256sum --check SHA256SUMS
+                  npm publish *.tgz --ignore-scripts --access public --provenance

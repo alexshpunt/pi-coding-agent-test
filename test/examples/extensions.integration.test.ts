@@ -5,11 +5,13 @@ import path from "node:path";
 import {
     assistantMessage,
     getProviderSystemPrompt,
+    getSystemPrompt,
     getToolCallNames,
     getToolExecution,
     getToolExecutionDetails,
     getToolResultText,
     PiIntegrationTest,
+    PiRun,
     testArtifactsDir,
     text,
     toolCall,
@@ -61,7 +63,13 @@ test("loads a custom extension and asserts its real tool effect", async () =>
         file: "note.json",
         note: { title: "Example", body: "Created by real Pi" },
     });
-    expect(getProviderSystemPrompt(result)).toContain("save_note example extension is loaded");
+    const promptMarker = "save_note example extension is loaded";
+    expect(getSystemPrompt(result)).toContain(promptMarker);
+    expect(result.traceEvents.find((event) => event.type === "agent_start")?.systemPrompt)
+        .toEqual(expect.stringContaining(promptMarker));
+
+    const reopened = await PiRun.open(result.artifacts.directory);
+    expect(getSystemPrompt(reopened)).toContain(promptMarker);
 });
 
 test("makes extension loading and tool selection explicit", async () =>

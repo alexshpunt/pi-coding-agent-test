@@ -1,0 +1,56 @@
+name: Pi 0.99.1 runtime
+
+on:
+    push:
+        branches: [main, develop, "release/*"]
+    pull_request:
+    workflow_dispatch:
+    workflow_call:
+
+permissions:
+    contents: read
+
+jobs:
+    runtime:
+        strategy:
+            fail-fast: false
+            matrix:
+                os: [ubuntu-latest, windows-latest]
+        runs-on: ${{ matrix.os }}
+        timeout-minutes: 10
+        defaults:
+            run:
+                shell: bash
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: "24"
+                  cache: npm
+            - run: npm ci
+            - run: npm run build
+            - name: Whole-command PTY lifecycle regressions
+              run: node node_modules/vitest/vitest.mjs run test/pty-lifecycle.test.ts test/owned-pty.test.ts test/pi-command.test.ts test/interactive-process.test.ts
+            - name: Source raw, native and failed-launch recovery
+              run: |
+                  "$PWD/node_modules/.bin/pi" --version
+                  node dist/cli.mjs run -- node_modules/vitest/vitest.mjs run --config vitest.integration.config.ts test/examples/raw-tooling-renderer.integration.test.ts test/examples/native-tui.integration.test.ts test/examples/launch-failure.integration.test.ts
+            - name: Build and install the candidate without publishing
+              run: |
+                  mkdir -p .tmp/runtime-pack
+                  npm pack --pack-destination .tmp/runtime-pack
+                  npm install --prefix .tmp/runtime-install --no-save --package-lock=false "$PWD/.tmp/runtime-pack/"*.tgz @earendil-works/pi-coding-agent@0.99.1 @earendil-works/pi-ai@0.99.1 vitest@4.1.10
+                  node scripts/prepare-runtime-fixture.mjs .tmp/runtime-install
+            - name: Installed raw, native and failed-launch recovery
+              run: |
+                  "$PWD/.tmp/runtime-install/node_modules/.bin/pi" --version
+                  npm exec --prefix .tmp/runtime-install -- pi-test run -- vitest run --root "$PWD/.tmp/runtime-install" --config "$PWD/.tmp/runtime-install/vitest.config.mjs"
+            - name: Keep runtime evidence
+              if: always()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: runtime-${{ matrix.os }}
+                  include-hidden-files: true
+                  path: |
+                      .tmp/test-runs
+                      .tmp/runtime-install/.tmp/test-runs

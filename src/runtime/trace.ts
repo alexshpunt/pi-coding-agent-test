@@ -1,6 +1,8 @@
 import { cp, readFile } from "node:fs/promises";
 import path from "node:path";
 
+import { RunTimeoutError } from "./timeout-error.js";
+
 import type { PiIntegrationTestRuntimeArtifacts } from "./artifacts.js";
 import type { PiIntegrationTestState, TraceEvent } from "../scenario/types.js";
 
@@ -81,9 +83,9 @@ async function waitForTrace(
     timeoutMessage: string,
 ): Promise<void>
 {
-    const started = Date.now();
+    const started = performance.now();
 
-    while (Date.now() - started < timeoutMs)
+    while (performance.now() - started < timeoutMs)
     {
         if (complete(await readTrace(tracePath, true)))
         {
@@ -93,7 +95,7 @@ async function waitForTrace(
         await delay(5);
     }
 
-    throw new Error(timeoutMessage);
+    throw new RunTimeoutError(timeoutMessage);
 }
 
 export function getSessionSnapshot(traceEvents: readonly TraceEvent[]): SessionSnapshot | undefined

@@ -6,6 +6,7 @@ import {
     createAssistantMessageEventStream,
     type Model,
     type SimpleStreamOptions,
+    type ToolCall,
 } from "@earendil-works/pi-ai";
 
 import { chunkString } from "../scenario/chunks.js";
@@ -224,7 +225,7 @@ async function emitBlock(
 
     if (block.includeEnd !== false)
     {
-        const parsed = JSON.parse(argumentsJson) as Record<string, unknown>;
+        const parsed = JSON.parse(argumentsJson) as ToolCall["arguments"];
         toolBlock.arguments = parsed;
         stream.push({
             type: "toolcall_end",

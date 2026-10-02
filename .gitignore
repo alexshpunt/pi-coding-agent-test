@@ -1,4 +1,6 @@
 /dist/
 /node_modules/
 /.tmp/
+/.agents/
+/.mesh/
 !package-lock.json
