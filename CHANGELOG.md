@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.3 - 2026-10-02
+
+- Keep browser cleanup waiting for owned zombie processes even when Linux denies access to their executable identity.
+- Preserve the exact process-generation checks and report when a parent must reap a retained zombie.
+
 ## 0.1.2 - 2026-10-02
 
 - Add isolated browser fixtures with bounded cleanup and clean-package install checks.
