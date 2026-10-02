@@ -1,6 +1,6 @@
 {
     "name": "pi-coding-agent-test",
-    "version": "0.1.1",
+    "version": "0.1.2",
     "description": "Deterministic end-to-end testing for Pi Coding Agent extensions, tools, sessions, and TUI output.",
     "type": "module",
     "types": "./dist/index.d.ts",
