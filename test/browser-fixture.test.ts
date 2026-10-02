@@ -2607,6 +2607,10 @@ async function run(
             {
                 settled = true;
                 clearTimeout(timer);
+                if (code !== 0)
+                {
+                    console.error(JSON.stringify({ command, arguments: arguments_, code, stderr, stdout }));
+                }
                 resolve({ code, pid, stderr, stdout });
             }
         });

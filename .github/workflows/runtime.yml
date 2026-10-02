@@ -1,9 +1,6 @@
 name: Pi 0.99.1 runtime
 
 on:
-    push:
-        branches: [main, develop, "release/*"]
-    pull_request:
     workflow_dispatch:
     workflow_call:
 
