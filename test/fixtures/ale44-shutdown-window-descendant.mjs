@@ -408,7 +408,19 @@ async function readAllIdentities()
     const entries = await readdir("/proc", { withFileTypes: true });
     const identities = await Promise.all(
         entries.filter((entry) => entry.isDirectory() && /^\d+$/u.test(entry.name))
-            .map((entry) => readIdentityIfPresent(Number.parseInt(entry.name, 10))),
+            .map(async (entry) =>
+            {
+                try
+                {
+                    return await readIdentityIfPresent(Number.parseInt(entry.name, 10));
+                }
+                catch (error)
+                {
+                    // Foreign root processes are not readable by a normal runner user.
+                    if (error.code === "EACCES" || error.code === "EPERM") return undefined;
+                    throw error;
+                }
+            }),
     );
     return identities.filter((identity) => identity !== undefined);
 }
