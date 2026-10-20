@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.4 - 2026-10-20
+
+- Build and test against Pi 1.3.0; the harness no longer installs Pi AI 0.99.1 alongside a newer host.
+
 ## 0.1.3 - 2026-10-02
 
 - Keep browser cleanup waiting for owned zombie processes even when Linux denies access to their executable identity.
