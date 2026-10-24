@@ -1,13 +1,6 @@
----
-name: inspect-interactive-tui-tests
-description: Inspect how Pi Coding Agent tool renderers look and change over time. Run deterministic cases live with pi-test or reconstruct recorded terminal frames with pi-test replay. Use this skill whenever a person or agent needs visual inspection, intermediate frames, timing, or interaction details. Do not use it for normal automated verification, CI, or a full integration suite.
----
+# Inspect Pi TUI test runs
 
-# Inspect Interactive Pi TUI Tests
-
-Before debugging, read [`../using-pi-coding-agent-test/SKILL.md`](../using-pi-coding-agent-test/SKILL.md) unless its first-use orientation is already complete in this session. Read `native-tui.integration.test.ts` for native presentation or `replay.integration.test.ts` for recorded frames before choosing commands.
-
-This skill is for interactive inspection and frame-level debugging, not for designing a new scenario.
+Use this for interactive inspection and frame-level debugging, not for normal automated verification. Read `native-tui.integration.test.ts` for native presentation or `replay.integration.test.ts` for recorded frames before choosing commands.
 
 Use `pi-test` in two modes:
 
