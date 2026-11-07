@@ -3,7 +3,7 @@ import { writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import path from "node:path";
 
-import { Type } from "@earendil-works/pi-ai";
+import { Type } from "typebox";
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 

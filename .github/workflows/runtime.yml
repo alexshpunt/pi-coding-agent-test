@@ -36,7 +36,7 @@ jobs:
               run: |
                   mkdir -p .tmp/runtime-pack
                   npm pack --pack-destination .tmp/runtime-pack
-                  npm install --prefix .tmp/runtime-install --no-save --package-lock=false "$PWD/.tmp/runtime-pack/"*.tgz @earendil-works/pi-coding-agent@0.99.1 @earendil-works/pi-ai@0.99.1 vitest@4.1.10
+                  npm install --prefix .tmp/runtime-install --no-save --package-lock=false "$PWD/.tmp/runtime-pack/"*.tgz @earendil-works/pi-coding-agent@1.5.0 @earendil-works/pi-ai@1.5.0 vitest@4.1.10
                   node scripts/prepare-runtime-fixture.mjs .tmp/runtime-install
             - name: Installed raw, native and failed-launch recovery
               run: |
