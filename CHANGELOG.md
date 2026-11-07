@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.5 - 2026-11-07
+
+- Build and test against Pi 1.5.0.
+- Skip Pi's version check in harness runs unless the caller sets `PI_SKIP_VERSION_CHECK`, so a new Pi release no longer adds an update notice to the screen.
+- Waiting for Pi to settle reads only new trace lines instead of re-reading the whole trace every 5 ms, so long sessions no longer spend most harness CPU parsing the trace.
+
 ## 0.1.4 - 2026-10-20
 
 - Build and test against Pi 1.3.0; the harness no longer installs Pi AI 0.99.1 alongside a newer host.
