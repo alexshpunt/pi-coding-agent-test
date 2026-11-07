@@ -60,10 +60,11 @@ test("retains completed and unfinished calls on timeout, then runs another scena
         expect(summary).toMatchObject({ partial: true, status: "timeout", exitCode: null });
         expect(summary.endedMonotonicMs).toBeGreaterThan(summary.startedMonotonicMs);
         expect(records[0].prompt).toBe("Write then wait.");
-        expect(reopened.traceEvents.find(event => event.type === "agent_start")?.activeTools).toEqual([
-            "write",
-            "bash",
-        ]);
+        // Pi lists active tools in its own registry order, not in the requested order.
+        expect(
+            (reopened.traceEvents.find(event => event.type === "agent_start")?.activeTools as string[] | undefined)
+                ?.toSorted(),
+        ).toEqual(["bash", "write"]);
         const times = reopened.traceEvents.map(event => event.monotonicMs);
         expect(times.every(time => typeof time === "number")).toBe(true);
         expect(times).toEqual([...times].sort((a, b) => Number(a) - Number(b)));
