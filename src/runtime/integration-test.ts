@@ -21,6 +21,7 @@ import {
     RAW_TOOL_OUTPUT_ENVIRONMENT,
     RAW_TOOL_OUTPUT_READY_ENVIRONMENT,
 } from "./constants.js";
+import { withHarnessEnvironmentDefaults } from "./pi-environment.js";
 import { runRpcProcess } from "./rpc-process.js";
 import { PiRun } from "./run.js";
 import { getSessionSnapshot } from "./trace.js";
@@ -111,15 +112,13 @@ export class PiIntegrationTest
             isolatedAgentDirectory = runtimeOptions.isolateUserResources === true
                 ? await createIsolatedAgentDirectory(runtimeOptions.environment?.PI_CODING_AGENT_DIR)
                 : undefined;
-            const processOptions: PiIntegrationTestOptions = isolatedAgentDirectory === undefined
-                ? runtimeOptions
-                : {
-                    ...runtimeOptions,
-                    environment: {
-                        ...runtimeOptions.environment,
-                        PI_CODING_AGENT_DIR: isolatedAgentDirectory,
-                    },
-                };
+            const environment = withHarnessEnvironmentDefaults(runtimeOptions.environment);
+            const processOptions: PiIntegrationTestOptions = {
+                ...runtimeOptions,
+                environment: isolatedAgentDirectory === undefined
+                    ? environment
+                    : { ...environment, PI_CODING_AGENT_DIR: isolatedAgentDirectory },
+            };
             let runStandalone = runRpcProcess;
 
             if (useStandaloneRunner && processOptions.transport !== "rpc")

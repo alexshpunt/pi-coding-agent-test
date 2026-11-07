@@ -143,7 +143,10 @@ export interface PiIntegrationTestOptions
     /** Pi executable path or command name. Defaults to `pi`. */
     readonly piCommand?: string;
 
-    /** Environment values merged over the parent process for the Pi child. */
+    /**
+     * Environment values merged over the parent process for the Pi child. The harness sets
+     * `PI_SKIP_VERSION_CHECK=1` unless this or the parent environment sets it.
+     */
     readonly environment?: NodeJS.ProcessEnv;
 
     /** Disable ambient resources and use only the current credentials and model metadata. */
