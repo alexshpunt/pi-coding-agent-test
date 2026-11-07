@@ -1,4 +1,4 @@
-import { cp, readFile } from "node:fs/promises";
+import { cp, open, readFile } from "node:fs/promises";
 import path from "node:path";
 
 import { RunTimeoutError } from "./timeout-error.js";
@@ -84,10 +84,11 @@ async function waitForTrace(
 ): Promise<void>
 {
     const started = performance.now();
+    const tail = new TraceTail(tracePath);
 
     while (performance.now() - started < timeoutMs)
     {
-        if (complete(await readTrace(tracePath, true)))
+        if (complete(await tail.poll()))
         {
             return;
         }
@@ -96,6 +97,76 @@ async function waitForTrace(
     }
 
     throw new RunTimeoutError(timeoutMessage);
+}
+
+/**
+ * Reads a growing JSONL trace incrementally.
+ *
+ * Each poll reads only the bytes appended since the previous one and parses every complete line
+ * once, so waiting on a large trace costs time proportional to the new events, not the whole file.
+ * A line without its trailing newline stays pending until a later poll completes it.
+ */
+export class TraceTail
+{
+    private readonly events: TraceEvent[] = [];
+    private offset = 0;
+    private pending = Buffer.alloc(0);
+
+    public constructor(private readonly file: string)
+    {
+    }
+
+    /** Return every complete event written so far. */
+    public async poll(): Promise<readonly TraceEvent[]>
+    {
+        const handle = await open(this.file, "r");
+
+        try
+        {
+            const { size } = await handle.stat();
+
+            if (size < this.offset)
+            {
+                // The file was replaced or truncated; start over from its beginning.
+                this.events.length = 0;
+                this.offset = 0;
+                this.pending = Buffer.alloc(0);
+            }
+
+            if (size > this.offset)
+            {
+                const chunk = Buffer.alloc(size - this.offset);
+                const { bytesRead } = await handle.read(chunk, 0, chunk.length, this.offset);
+                this.offset += bytesRead;
+                this.consume(chunk.subarray(0, bytesRead));
+            }
+        }
+        finally
+        {
+            await handle.close();
+        }
+
+        return this.events;
+    }
+
+    private consume(chunk: Buffer): void
+    {
+        const data = this.pending.length === 0 ? chunk : Buffer.concat([this.pending, chunk]);
+        let start = 0;
+
+        for (let end = data.indexOf(0x0A, start); end !== -1; end = data.indexOf(0x0A, start))
+        {
+            const line = data.toString("utf8", start, end).trim();
+            start = end + 1;
+
+            if (line.length > 0)
+            {
+                this.events.push(JSON.parse(line) as TraceEvent);
+            }
+        }
+
+        this.pending = Buffer.from(data.subarray(start));
+    }
 }
 
 export function getSessionSnapshot(traceEvents: readonly TraceEvent[]): SessionSnapshot | undefined
