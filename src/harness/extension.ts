@@ -62,8 +62,10 @@ function trace(type: string, value: Record<string, unknown> = {}): void
 /** Drop `details` from tool results and tool result messages, which carry it next to `content` or `toolCallId`. */
 function withoutToolDetails(this: unknown, key: string, value: unknown): unknown
 {
-    if (key === "details" && typeof this === "object" && this !== null
-        && (Array.isArray((this as { content?: unknown; }).content) || "toolCallId" in this))
+    if (
+        key === "details" && typeof this === "object" && this !== null
+        && (Array.isArray((this as { content?: unknown; }).content) || "toolCallId" in this)
+    )
     {
         return undefined;
     }
