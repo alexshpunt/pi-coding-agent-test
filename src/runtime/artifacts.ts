@@ -74,6 +74,7 @@ export async function prepareIntegrationTestArtifacts(input: PrepareArtifactsInp
         conversation: options.conversation ?? [],
         providerMode: options.providerMode ?? "scripted",
         tools: options.tools,
+        traceToolDetails: options.traceToolDetails ?? true,
     });
     await Promise.all([
         writeFile(runtime.trace, "", "utf8"),
