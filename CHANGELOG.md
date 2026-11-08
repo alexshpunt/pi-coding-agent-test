@@ -1,8 +1,14 @@
 # Changelog
 
-## Unreleased
+## 0.1.6 - 2026-11-08
 
 - Add the `traceToolDetails` scenario setting. Set it to `false` to keep tool result `details` out of the trace when a test does not read them; large details, such as whole-file snapshots, otherwise cost CPU and memory in Pi and the harness on every tool call.
+
+## 0.1.5 - 2026-11-07
+
+- Build and test against Pi 1.5.0.
+- Skip Pi's version check in harness runs unless the caller sets `PI_SKIP_VERSION_CHECK`, so a new Pi release no longer adds an update notice to the screen.
+- Waiting for Pi to settle reads only new trace lines instead of re-reading the whole trace every 5 ms, so long sessions no longer spend most harness CPU parsing the trace.
 
 ## 0.1.4 - 2026-10-20
 
