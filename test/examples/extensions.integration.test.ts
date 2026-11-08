@@ -108,6 +108,37 @@ test("makes extension loading and tool selection explicit", async () =>
     expect(getProviderSystemPrompt(omitted)).not.toContain("optional example extension is loaded");
 });
 
+test("leaves tool result details out of the trace when the test does not need them", async () =>
+{
+    const workspace = await mkdtemp(path.join(tmpdir(), "pi-coding-agent-test-trace-details-"));
+    workspaces.push(workspace);
+
+    const result = await new PiIntegrationTest({
+        testName: "trace-without-tool-details",
+        artifactsDir: testArtifactsDir(import.meta.filename),
+        cwd: workspace,
+        extensions: [noteExtension],
+        tools: ["save_note"],
+        traceToolDetails: false,
+        conversation: [
+            assistantMessage([
+                toolCall({
+                    id: "save-note",
+                    name: "save_note",
+                    arguments: { title: "Example", body: "Created by real Pi" },
+                }),
+            ], { stopReason: "toolUse" }),
+            assistantMessage([text("The note was saved.")]),
+        ],
+    }).run("Save a note with the custom extension");
+
+    expect(getToolResultText(result, "save-note")).toContain("Saved note: Example");
+    expect(getToolExecutionDetails(getToolExecution(result, "save-note"))).toBeUndefined();
+    const traced = result.traceEvents.map((event) => JSON.stringify(event)).join("\n");
+    expect(traced).not.toContain("\"note.json\"");
+    expect(traced).toContain("Created by real Pi");
+});
+
 test("registers and selects a tool during session_start", async () =>
 {
     const workspace = await mkdtemp(path.join(tmpdir(), "pi-coding-agent-test-runtime-extension-"));

@@ -64,6 +64,8 @@ Use structured accessors for data contracts:
 - `getSystemPrompt`, `getProviderSystemPrompt`, `result.traceEvents`, `result.providerRequests`;
 - `result.messages`, `result.state`, and `result.exitCode`.
 
+For load tests or tools with large `details` that the test does not read, set `traceToolDetails: false`; `getToolExecutionDetails` then returns `undefined`.
+
 Use external effects when they are the contract: file contents, directories, diagnostics, generated resources, tool
 ordering, session state, or final terminal text.
 

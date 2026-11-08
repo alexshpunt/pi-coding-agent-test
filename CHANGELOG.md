@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Add the `traceToolDetails` scenario setting. Set it to `false` to keep tool result `details` out of the trace when a test does not read them; large details, such as whole-file snapshots, otherwise cost CPU and memory in Pi and the harness on every tool call.
+
 ## 0.1.4 - 2026-10-20
 
 - Build and test against Pi 1.3.0; the harness no longer installs Pi AI 0.99.1 alongside a newer host.

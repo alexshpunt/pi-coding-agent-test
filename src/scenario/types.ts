@@ -157,6 +157,14 @@ export interface PiIntegrationTestOptions
 
     /** Maximum time to wait for the real agent to settle. Defaults to 30 seconds. */
     readonly timeoutMs?: number;
+
+    /**
+     * Record tool result `details` in the trace. Defaults to `true`. Turn it off when tools return
+     * large details, such as whole-file snapshots, that the test does not inspect: Pi serializes every
+     * traced event, and the harness keeps the trace in memory. Without them, tool executions and tool
+     * result messages in the trace and the run bundle have no `details`.
+     */
+    readonly traceToolDetails?: boolean;
 }
 
 /** Terminal dimensions used by the real Pi pseudo-terminal. */
