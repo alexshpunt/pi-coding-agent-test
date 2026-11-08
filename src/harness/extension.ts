@@ -21,6 +21,7 @@ interface HarnessConfig
     conversation: readonly NonNullable<PiIntegrationTestOptions["conversation"]>[number][];
     providerMode: NonNullable<PiIntegrationTestOptions["providerMode"]>;
     tools?: PiIntegrationTestOptions["tools"];
+    traceToolDetails?: boolean;
 }
 
 interface HarnessRequest
@@ -54,7 +55,20 @@ function trace(type: string, value: Record<string, unknown> = {}): void
         monotonicMs: Number(process.hrtime.bigint()) / 1e6,
         ...value,
     };
-    appendFileSync(traceFile, JSON.stringify(event) + "\n", "utf8");
+    const replacer = config?.traceToolDetails === false ? withoutToolDetails : undefined;
+    appendFileSync(traceFile, JSON.stringify(event, replacer) + "\n", "utf8");
+}
+
+/** Drop `details` from tool results and tool result messages, which carry it next to `content` or `toolCallId`. */
+function withoutToolDetails(this: unknown, key: string, value: unknown): unknown
+{
+    if (key === "details" && typeof this === "object" && this !== null
+        && (Array.isArray((this as { content?: unknown; }).content) || "toolCallId" in this))
+    {
+        return undefined;
+    }
+
+    return value;
 }
 
 function tracePiEvent(type: string, event: unknown): void

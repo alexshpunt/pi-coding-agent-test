@@ -18,6 +18,8 @@ Executable behavior contracts live in [`./test/`](./test/); demo scripts live in
 
 `PiIntegrationTest` supports explicit `skills`, `systemPrompt`, and `appendSystemPrompt` settings. Skills are loaded from the listed files or directories even though ambient skill discovery is disabled for isolated runs. Use `getSystemPrompt(run)` to inspect the final effective prompt after extension `before_agent_start` handlers have run.
 
+Set `traceToolDetails: false` when tools return large `details`, such as whole-file snapshots, that the test does not inspect. Pi serializes every traced event and the harness keeps the trace in memory, so these details cost CPU and memory in both processes on every tool call. Without them, `getToolExecutionDetails` returns `undefined` and traced tool result messages have no `details`.
+
 ## Raw debugging interface
 
 Raw mode is a debugging view for inspecting runs, not just a test assertion format. It shows complete tool arguments and call IDs, followed by the text result and the full result envelope, including internal `details`, error state and progressive updates. Long payloads are wrapped, not shortened to a preview.
