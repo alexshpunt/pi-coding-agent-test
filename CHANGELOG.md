@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.7 - 2026-11-09
+
+- Merge the three Pi skills into one `pi-coding-agent-test` skill, so the package adds one description to the system prompt instead of three. The TUI inspection guide moved to `references/inspect-tui.md` inside it. The skills `using-pi-coding-agent-test`, `test-pi-coding-agent` and `inspect-interactive-tui-tests` no longer exist; anything that names them should name `pi-coding-agent-test`.
+
 ## 0.1.6 - 2026-11-08
 
 - Add the `traceToolDetails` scenario setting. Set it to `false` to keep tool result `details` out of the trace when a test does not read them; large details, such as whole-file snapshots, otherwise cost CPU and memory in Pi and the harness on every tool call.
