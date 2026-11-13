@@ -47,6 +47,7 @@ expect(getToolResultText(result, "call-1")).toContain("expected");
 - For load tests or tools with large `details` that the test does not read, set `traceToolDetails: false`; `getToolExecutionDetails` then returns `undefined`.
 - The raw renderer, the default, shows stable tool names, arguments, results and ordering. Set `rawMode: false` for native layout, progressive output, spinners and status. Assert data and presentation from the same run.
 - Use `chunks`, `delayMs`, `deltaDelaysMs`, `argumentsJson`, `contentIndex`, `argumentSnapshots` or `includeEnd` only when partial delivery or timing is the contract. Let a real extension abort on its own.
+- By default, scripted tool arguments stream in chunks of 1024 UTF-16 code units. If `delayMs`, `deltaDelaysMs` or `argumentSnapshots` is set without `chunks`, they stream by Unicode character instead; set `chunks` explicitly to choose another schedule.
 
 ## Run and debug
 
