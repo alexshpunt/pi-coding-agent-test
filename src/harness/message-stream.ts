@@ -172,7 +172,11 @@ async function emitBlock(
 
     let partialArguments = "";
 
-    const argumentDeltas = chunkString(argumentsJson, block.chunks ?? { kind: "characters" });
+    const defaultChunks = block.delayMs !== undefined || block.deltaDelaysMs !== undefined
+            || block.argumentSnapshots !== undefined
+        ? { kind: "characters" as const }
+        : { kind: "fixed" as const, size: 1024 };
+    const argumentDeltas = chunkString(argumentsJson, block.chunks ?? defaultChunks);
     validateDeltaDelays(block, argumentDeltas.length);
     const argumentClock = createDeltaClock(block);
 

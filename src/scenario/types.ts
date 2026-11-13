@@ -41,7 +41,7 @@ export interface ToolCallBlock
     /** Exact serialized arguments when malformed or partial JSON is part of the scenario. */
     readonly argumentsJson?: string;
 
-    /** How the serialized arguments are divided into provider deltas. Defaults to characters. */
+    /** How serialized arguments are divided into deltas. Defaults to 1024 UTF-16 code units per delta, or characters when timing or snapshots are specified. */
     readonly chunks?: ChunkSpec;
 
     /** Delay before each argument delta. The array length must match the generated chunk count. */
