@@ -22,16 +22,35 @@ process.on("message", (message: OwnerRequest) =>
     {
         if (message.type === "start")
         {
-            terminal = spawn(message.command, message.arguments, message.options);
-            terminal.onData((data) =>
+            const started = spawn(message.command, message.arguments, message.options);
+            terminal = started;
+            // node-pty 1.2 starts Windows processes asynchronously: pid stays 0 until ConPTY
+            // connects, which happens before the first data or exit event.
+            let announced = false;
+            const announce = (): void =>
             {
+                if (announced || started.pid === 0)
+                {
+                    return;
+                }
+
+                announced = true;
+                clearInterval(pidPoll);
+                send({ type: "ready", pid: started.pid });
+            };
+            const pidPoll = setInterval(announce, 10);
+            started.onData((data) =>
+            {
+                announce();
                 send({ type: "data", data });
             });
-            terminal.onExit((event) =>
+            started.onExit((event) =>
             {
+                announce();
+                clearInterval(pidPoll);
                 send({ type: "exit", ...event });
             });
-            send({ type: "ready", pid: terminal.pid });
+            announce();
         }
         else
         {
