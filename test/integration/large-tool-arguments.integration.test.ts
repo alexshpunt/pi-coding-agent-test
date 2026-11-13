@@ -2,7 +2,14 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { assistantMessage, getToolExecution, PiIntegrationTest, testArtifactsDir, text, toolCall } from "pi-coding-agent-test";
+import {
+    assistantMessage,
+    getToolExecution,
+    PiIntegrationTest,
+    testArtifactsDir,
+    text,
+    toolCall,
+} from "pi-coding-agent-test";
 import { expect, test } from "vitest";
 
 test("a scripted tool call with 100 KB of arguments finishes within the default timeout", async () =>

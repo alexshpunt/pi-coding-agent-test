@@ -31,13 +31,21 @@ describe("scripted tool argument streaming", () =>
 
     it("keeps character chunks for explicitly timed or snapshot streams", async () =>
     {
-        for (const options of [
-            { delayMs: 0 },
-            { deltaDelaysMs: [0, 0] },
-            { argumentSnapshots: [{}, {}] },
-        ])
+        for (
+            const options of [
+                { delayMs: 0 },
+                { deltaDelaysMs: [0, 0] },
+                { argumentSnapshots: [{}, {}] },
+            ]
+        )
         {
-            const events = await streamToolCall({ type: "toolCall", id: "call", name: "write", argumentsJson: "{}", ...options });
+            const events = await streamToolCall({
+                type: "toolCall",
+                id: "call",
+                name: "write",
+                argumentsJson: "{}",
+                ...options,
+            });
             expect(events.flatMap((event) => event.type === "toolcall_delta" ? [event.delta] : [])).toEqual(["{", "}"]);
         }
     });
@@ -45,8 +53,12 @@ describe("scripted tool argument streaming", () =>
     it("respects explicit chunking with timing", async () =>
     {
         const events = await streamToolCall({
-            type: "toolCall", id: "call", name: "write", argumentsJson: "{}",
-            chunks: { kind: "explicit", chunks: ["{}"] }, deltaDelaysMs: [0],
+            type: "toolCall",
+            id: "call",
+            name: "write",
+            argumentsJson: "{}",
+            chunks: { kind: "explicit", chunks: ["{}"] },
+            deltaDelaysMs: [0],
         });
         expect(events.flatMap((event) => event.type === "toolcall_delta" ? [event.delta] : [])).toEqual(["{}"]);
     });
