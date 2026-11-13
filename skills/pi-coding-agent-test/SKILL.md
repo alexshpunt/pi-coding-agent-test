@@ -59,6 +59,6 @@ pi-test run -- vitest run --config vitest.integration.config.ts
 
 The wrapper reuses a compatible Pi process, but every case gets a fresh session and workspace. Run the test command directly when startup or process isolation is the contract.
 
-The shared process runs each case in a copy of its `cwd` under `.tmp/pi-integration-shared-*/workspace` and copies the changes back after the run. Paths in tool results and traces name that copy, so compare them relative to the workspace or by file name, not against the test's `cwd`.
+The shared process runs each case in a copy of its `cwd` under `.tmp/pi-integration-shared-*/workspace` and copies the changes back after the run. Paths in tool results and traces name that copy, so compare them relative to the workspace or by file name, not against the test's `cwd`. The shared Pi loads extensions once, in an empty workspace, before any case files are copied in. An extension that reads a case file while it loads crashes the shared Pi, and the run fails with `Shared Pi exited before becoming ready with code 1`. Read case files in a session or agent hook, such as `before_agent_start`.
 
 Artifacts go to `.tmp/test-runs` or `artifactsDir`: `error.log` for startup failures, `run.jsonl` for the full trace, terminal stream and session, and `tui-rendered.log` for the final screen. For intermediate frames, timing or watching a case live, read [inspect-tui.md](references/inspect-tui.md).
