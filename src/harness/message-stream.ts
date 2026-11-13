@@ -13,6 +13,8 @@ import { chunkString } from "../scenario/chunks.js";
 
 import type { AssistantContentBlock, AssistantMessageScenario } from "../scenario/types.js";
 
+const DEFAULT_TOOL_ARGUMENT_CHUNK_SIZE = 1024;
+
 interface DeltaClock
 {
     nextAt: number;
@@ -175,7 +177,7 @@ async function emitBlock(
     const defaultChunks = block.delayMs !== undefined || block.deltaDelaysMs !== undefined
             || block.argumentSnapshots !== undefined
         ? { kind: "characters" as const }
-        : { kind: "fixed" as const, size: 1024 };
+        : { kind: "fixed" as const, size: DEFAULT_TOOL_ARGUMENT_CHUNK_SIZE };
     const argumentDeltas = chunkString(argumentsJson, block.chunks ?? defaultChunks);
     validateDeltaDelays(block, argumentDeltas.length);
     const argumentClock = createDeltaClock(block);
