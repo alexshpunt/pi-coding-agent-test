@@ -90,6 +90,7 @@ export async function writeRunBundle(
     prompt: string,
     result: PiIntegrationTestResult,
     outcome: { status: "settled" | "timeout" | "error"; startedMonotonicMs: number; endedMonotonicMs: number; },
+    initialTerminalState?: string,
 ): Promise<void>
 {
     const session = await readSession(runtime.sessionDirectory);
@@ -122,7 +123,7 @@ export async function writeRunBundle(
         records.push({ kind: "trace", event });
     }
 
-    records.push({ kind: "terminal", data: result.terminalOutput });
+    records.push({ kind: "terminal", data: result.terminalOutput, initialState: initialTerminalState });
     records.push({
         kind: "summary",
         ...outcome,

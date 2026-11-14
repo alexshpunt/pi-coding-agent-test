@@ -295,6 +295,7 @@ export class SharedPiProcess
         const terminalOffset = this.terminalOutput.length;
         const frameTimestampOffset = this.frameTimestamps.length;
         const runStartedAt = performance.now();
+        const initialTerminalState = await renderer.serialize();
 
         const requestFile = path.join(workspaceRoot, `.pi-integration-request-${request.requestId}.json`);
         const requestData: SharedRequestFile = {
@@ -335,6 +336,7 @@ export class SharedPiProcess
             await copySessionFileFromTrace(request.runtime, request.runtime.trace);
 
             result = {
+                initialTerminalState,
                 terminalOutput,
                 frameDelaysMs,
                 tuiSize: DEFAULT_TUI_SIZE,
