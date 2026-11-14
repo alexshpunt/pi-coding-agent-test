@@ -184,7 +184,7 @@ export class PiIntegrationTest
                 status: "settled",
                 startedMonotonicMs,
                 endedMonotonicMs: Number(process.hrtime.bigint()) / 1e6,
-            });
+            }, processResult.initialTerminalState);
             bundleWritten = true;
             return PiRun.fromResult(result);
         }

@@ -46,6 +46,7 @@ export interface InteractiveProcessOptions
 
 export interface InteractiveProcessResult
 {
+    readonly initialTerminalState?: string;
     readonly frameDelaysMs: readonly number[];
     readonly terminalOutput: string;
     readonly tuiSize: TuiSize;

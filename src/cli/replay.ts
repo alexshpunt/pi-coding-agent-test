@@ -189,6 +189,7 @@ async function readBundleTerminal(runFile: string): Promise<BundlePlaybackData |
                 JSON.parse(line) as {
                     readonly kind?: unknown;
                     readonly data?: unknown;
+                    readonly initialState?: unknown;
                     readonly frameDelaysMs?: unknown;
                 }
             );
@@ -201,7 +202,7 @@ async function readBundleTerminal(runFile: string): Promise<BundlePlaybackData |
         }
 
         return {
-            stream: terminal.data,
+            stream: (typeof terminal.initialState === "string" ? terminal.initialState : "") + terminal.data,
             ...(isNumberArray(summary?.frameDelaysMs) ? { frameDelaysMs: summary.frameDelaysMs } : {}),
         };
     }
