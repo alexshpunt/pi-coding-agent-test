@@ -12,6 +12,8 @@
 
 The test controls the initial prompt and scripted assistant responses. It does not fake tool execution or extension behavior. Each run gets a fresh session and workspace, records artifacts, and can be replayed without starting Pi.
 
+Shared-run recordings store the pre-run terminal state in the terminal record's optional `initialState` field. Replay restores that state before applying the run's output. The record's `data` and `PiRun.terminalOutput` remain the exact PTY bytes for the run. Older recordings still open, but terminal state omitted from them cannot be recovered.
+
 Executable behavior contracts live in [`./test/`](./test/); demo scripts live in [`./scripts/`](./scripts/).
 
 ## Scenario settings
