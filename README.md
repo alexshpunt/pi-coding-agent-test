@@ -12,6 +12,8 @@
 
 The test controls the initial prompt and scripted assistant responses. It does not fake tool execution or extension behavior. Each run gets a fresh session and workspace, records artifacts, and can be replayed without starting Pi.
 
+The shared runner keeps a compatible Pi process alive, with a separate workspace directory for each scenario. It switches to an empty session in that directory, so shared scenarios receive `session_start` with `reason: "resume"`. After settlement it switches back to an idle workspace, completing `session_shutdown` with `reason: "resume"` before copying scenario files back and removing the staged directory. Shutdown uses the remaining scenario timeout. Standalone runs keep their normal `startup` and `quit` lifecycle.
+
 Executable behavior contracts live in [`./test/`](./test/); demo scripts live in [`./scripts/`](./scripts/).
 
 ## Scenario settings
