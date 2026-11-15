@@ -72,8 +72,23 @@ jobs:
                   cd .tmp/release
                   sha256sum --check SHA256SUMS
                   npm publish *.tgz --ignore-scripts --access public --provenance
+    verify-published:
+        if: github.event_name == 'release'
+        needs: publish
+        runs-on: ubuntu-latest
+        timeout-minutes: 20
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: "24"
+            - uses: actions/download-artifact@v4
+              with:
+                  name: npm-release
+                  path: .tmp/release
             - name: Verify registry and clean install
               run: |
+                  (cd .tmp/release && sha256sum --check SHA256SUMS)
                   node scripts/verify-published-package.mjs .tmp/release/*.tgz
                   version=$(node -p 'require("./package.json").version')
                   npm install --prefix .tmp/registry-install --omit=dev --no-save --package-lock=false "pi-coding-agent-test@$version" --registry https://registry.npmjs.org
