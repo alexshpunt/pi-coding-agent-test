@@ -10,7 +10,7 @@
 
 `pi-coding-agent-test` runs tests against real Pi instead of mocking it. Pi loads your extensions, runs real tools and hooks, creates sessions, changes files, and renders terminal output.
 
-The test controls the initial prompt and scripted assistant responses. It does not fake tool execution or extension behavior. Each run gets a fresh session and workspace, records artifacts, and can be replayed without starting Pi.
+The test controls the initial prompt and scripted assistant responses. It does not fake tool execution or extension behavior. Each run gets a fresh session and workspace, records artifacts, and can be replayed without starting Pi. Workspace staging and synchronization preserve symlink objects, including relative targets and dangling links.
 
 Shared-run recordings store the pre-run terminal state in the terminal record's optional `initialState` field. Replay restores that state before applying the run's output. The record's `data` and `PiRun.terminalOutput` remain the exact PTY bytes for the run. Older recordings still open, but terminal state omitted from them cannot be recovered.
 
