@@ -12,25 +12,53 @@ if (!archivePath)
 }
 const archive = await readFile(path.resolve(archivePath));
 const endpoint = `https://registry.npmjs.org/${encodeURIComponent(manifest.name)}`;
+const deadline = Date.now() + 10 * 60_000;
 let published;
-for (let attempt = 0; attempt < 20; attempt += 1)
+let lastError;
+while (Date.now() < deadline)
 {
-    const response = await fetch(endpoint, { signal: AbortSignal.timeout(10_000), cache: "no-store" });
-    if (!response.ok)
+    let response;
+    let metadata;
+    try
     {
-        throw new Error(`Registry request failed: ${response.status}`);
+        response = await fetch(endpoint, {
+            signal: AbortSignal.timeout(Math.max(1, Math.min(10_000, deadline - Date.now()))),
+            cache: "no-store",
+        });
+        if (response.ok)
+        {
+            metadata = await response.json();
+        }
+        else
+        {
+            await response.body?.cancel();
+        }
     }
-    const metadata = await response.json();
-    if (metadata["dist-tags"]?.latest === manifest.version && metadata.versions?.[manifest.version])
+    catch (error)
+    {
+        lastError = error;
+    }
+    if (metadata?.["dist-tags"]?.latest === manifest.version && metadata.versions?.[manifest.version])
     {
         published = metadata.versions[manifest.version];
         break;
     }
-    await delay(3_000);
+    if (response && !response.ok)
+    {
+        const error = new Error(`Registry request failed: ${response.status}`);
+        if (response.status !== 404 && response.status !== 429 && response.status < 500)
+        {
+            throw error;
+        }
+        lastError = error;
+    }
+    await delay(Math.max(0, Math.min(3_000, deadline - Date.now())));
 }
 if (!published)
 {
-    throw new Error(`Registry has not confirmed ${manifest.name}@${manifest.version} as latest`);
+    throw new Error(`Registry has not confirmed ${manifest.name}@${manifest.version} as latest after ten minutes`, {
+        cause: lastError,
+    });
 }
 const response = await fetch(published.dist.tarball, { signal: AbortSignal.timeout(30_000) });
 if (!response.ok)
