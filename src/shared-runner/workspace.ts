@@ -46,7 +46,8 @@ export async function syncWorkspace(
     {
         const targetKind = targetEntries.get(relativePath);
 
-        if (targetKind !== undefined && targetKind !== sourceKind)
+        // fs.cp stats link referents when overwriting an existing link, even with verbatimSymlinks.
+        if (targetKind !== undefined && (targetKind !== sourceKind || sourceKind === "symbolic-link"))
         {
             pathsToRemove.add(relativePath);
         }
@@ -72,7 +73,11 @@ async function copyDirectoryContents(source: string, target: string): Promise<vo
     const entries = await readdir(source);
     await Promise.all(
         entries.map((entry) =>
-            cp(path.join(source, entry), path.join(target, entry), { recursive: true, force: true })
+            cp(path.join(source, entry), path.join(target, entry), {
+                recursive: true,
+                force: true,
+                verbatimSymlinks: true,
+            })
         ),
     );
 }
