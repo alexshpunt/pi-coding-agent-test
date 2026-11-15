@@ -200,7 +200,11 @@ export async function copySessionFileFromTrace(
     }
 }
 
-export async function waitForNonEmptyFile(filePath: string, timeoutMs: number): Promise<void>
+export async function waitForNonEmptyFile(
+    filePath: string,
+    timeoutMs: number,
+    timeoutMessage?: string,
+): Promise<void>
 {
     const started = Date.now();
 
@@ -223,7 +227,7 @@ export async function waitForNonEmptyFile(filePath: string, timeoutMs: number): 
         await delay(10);
     }
 
-    throw new Error(`Shared Pi did not become ready within ${timeoutMs}ms`);
+    throw new Error(timeoutMessage ?? `Shared Pi did not become ready within ${timeoutMs}ms`);
 }
 
 export function delay(milliseconds: number): Promise<void>
