@@ -169,6 +169,8 @@ npm OIDC publisher on that exact validated archive. A manual workflow run valida
 without publishing. npm must trust `alexshpunt/pi-coding-agent-test`, workflow
 `release.yml`, with direct publishing allowed.
 
+Registry verification waits up to ten minutes for the version and `latest` tag, then compares the downloaded archive with the validated CI archive and checks a clean install. If `verify-published` fails after publication succeeds, rerun only that job (or failed jobs) in the same Actions run. Its validated artifact is reused and it has no publication step or OIDC write permission. Do not rerun the successful `publish` job or the entire release workflow.
+
 ## Browser package verification
 
 Run `node test/fixtures/verify-browser-package-consumers.mjs preflight` to check prerequisites.
