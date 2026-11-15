@@ -280,25 +280,32 @@ export class SharedPiProcess
     {
         await this.ensureProcess(request);
 
-        const workspaceRoot = this.workspaceRoot;
+        const workspaceParent = this.workspaceRoot;
+        const sharedRoot = this.sharedRoot;
         const renderer = this.renderer;
 
         if (
-            this.pi === undefined || workspaceRoot === undefined || renderer === undefined
+            this.pi === undefined || workspaceParent === undefined || sharedRoot === undefined || renderer === undefined
         )
         {
             throw new Error("Shared Pi runner is not initialized");
         }
 
+        const workspaceRoot = path.join(workspaceParent, request.requestId);
         const workspaceSnapshot = await stageWorkspace(request.cwd, workspaceRoot);
 
         const terminalOffset = this.terminalOutput.length;
         const frameTimestampOffset = this.frameTimestamps.length;
+        const timeoutMs = request.options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
         const runStartedAt = performance.now();
         const initialTerminalState = await renderer.serialize();
 
-        const requestFile = path.join(workspaceRoot, `.pi-integration-request-${request.requestId}.json`);
+        const requestFile = path.join(sharedRoot, `.pi-integration-request-${request.requestId}.json`);
+        const finishedFile = `${requestFile}.finished`;
         const requestData: SharedRequestFile = {
+            cwd: workspaceRoot,
+            sessionPath: path.join(sharedRoot, "session", `${request.requestId}.jsonl`),
+            idleCwd: path.join(sharedRoot, "idle"),
             prompt: request.prompt,
             configPath: request.runtime.config,
             tracePath: request.runtime.trace,
@@ -316,7 +323,7 @@ export class SharedPiProcess
             await waitForSettledTrace(
                 request.runtime.trace,
                 request.options.conversation?.length ?? 0,
-                request.options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+                timeoutMs,
             );
             await delay(50);
             await this.liveTuiOutput?.flush();
@@ -344,6 +351,15 @@ export class SharedPiProcess
                 traceEvents: await readTrace(request.runtime.trace),
                 exitCode: null,
             };
+
+            // Complete shutdown hooks before copying this scenario's files back to its fixture.
+            this.pi.write(`/pi-integration-test-finish ${requestFile}\r`);
+            const remainingTimeoutMs = Math.max(0, timeoutMs - (performance.now() - runStartedAt));
+            await waitForNonEmptyFile(
+                finishedFile,
+                remainingTimeoutMs,
+                `Shared Pi scenario shutdown exceeded the ${timeoutMs}ms run budget`,
+            );
         }
         catch (error)
         {
@@ -355,7 +371,7 @@ export class SharedPiProcess
 
         try
         {
-            await rm(requestFile, { force: true });
+            await Promise.all([rm(requestFile, { force: true }), rm(finishedFile, { force: true })]);
         }
         catch (error)
         {
@@ -365,6 +381,11 @@ export class SharedPiProcess
         try
         {
             await syncWorkspace(workspaceRoot, request.cwd, workspaceSnapshot);
+
+            if (!runFailed)
+            {
+                await rm(workspaceRoot, { recursive: true, force: true });
+            }
         }
         catch (error)
         {
@@ -530,6 +551,7 @@ export class SharedPiProcess
             `pi-integration-shared-${process.pid}-${randomBytes(6).toString("hex")}`,
         );
         const workspaceRoot = path.join(root, "workspace");
+        const idleCwd = path.join(root, "idle");
         const sessionDirectory = path.join(root, "session");
         const readyPath = path.join(root, "ready.json");
         const configuration: ActiveConfiguration = {
@@ -551,6 +573,7 @@ export class SharedPiProcess
             await Promise.all([
                 mkdir(sessionDirectory, { recursive: true }),
                 mkdir(workspaceRoot, { recursive: true }),
+                mkdir(idleCwd, { recursive: true }),
             ]);
             const startupGatePath = path.join(root, "startup-gate");
             await writeFile(startupGatePath, "hold\n", "utf8");
@@ -609,7 +632,7 @@ export class SharedPiProcess
                 launch.command,
                 launch.arguments,
                 {
-                    cwd: workspaceRoot,
+                    cwd: idleCwd,
                     ...DEFAULT_TUI_SIZE,
                     name: "xterm-256color",
                     ...(process.platform === "win32" ? {} : { encoding: "utf8" }),

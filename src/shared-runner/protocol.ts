@@ -35,6 +35,9 @@ export interface SharedRunResponse
 
 export interface SharedRequestFile
 {
+    readonly cwd: string;
+    readonly sessionPath: string;
+    readonly idleCwd: string;
     readonly prompt: string;
     readonly configPath: string;
     readonly tracePath: string;
