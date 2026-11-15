@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.8 - 2026-11-15
+
+- Stream tool-call arguments in chunks of 1,024 UTF-16 code units by default. Explicit timing or snapshots keep character-sized chunks.
+- Give each shared scenario a separate workspace directory while reusing the compatible Pi process, so workspace-scoped caches do not reuse another fixture's data.
+- Finish scenario shutdown hooks before copying file changes back and removing the staged workspace.
+- Keep shutdown within the remaining scenario timeout and identify shutdown timeouts separately from startup failures.
+- Shared scenarios now receive `session_start` and `session_shutdown` with `reason: "resume"`. Each starts from an empty session without prior messages or persisted extension entries. Standalone runs retain `startup` and `quit`.
+
 ## 0.1.7 - 2026-11-09
 
 - Merge the three Pi skills into one `pi-coding-agent-test` skill, so the package adds one description to the system prompt instead of three. The TUI inspection guide moved to `references/inspect-tui.md` inside it. The skills `using-pi-coding-agent-test`, `test-pi-coding-agent` and `inspect-interactive-tui-tests` no longer exist; anything that names them should name `pi-coding-agent-test`.
