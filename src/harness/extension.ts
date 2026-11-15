@@ -1,4 +1,5 @@
-import { appendFileSync, readFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
+import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
 
 import { getCurrentSystemPrompt } from "@earendil-works/pi-ai";
 
@@ -14,7 +15,8 @@ import {
 import { streamScenario } from "./message-stream.js";
 
 import type { PiIntegrationTestOptions, TraceEvent } from "../scenario/types.js";
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { SharedRequestFile } from "../shared-runner/protocol.js";
+import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 
 interface HarnessConfig
 {
@@ -22,13 +24,6 @@ interface HarnessConfig
     providerMode: NonNullable<PiIntegrationTestOptions["providerMode"]>;
     tools?: PiIntegrationTestOptions["tools"];
     traceToolDetails?: boolean;
-}
-
-interface HarnessRequest
-{
-    prompt: string;
-    configPath: string;
-    tracePath: string;
 }
 
 const configPath = process.env[HARNESS_CONFIG_ENVIRONMENT];
@@ -101,6 +96,29 @@ function getMessages(branch: readonly unknown[]): unknown[]
 
         return [(entry as { message: unknown; }).message];
     });
+}
+
+function createWorkspaceSession(ctx: ExtensionCommandContext, file: string, cwd: string): void
+{
+    const header = ctx.sessionManager.getHeader();
+
+    if (header === null)
+    {
+        throw new Error("Cannot create a scenario session without a session header");
+    }
+
+    // A header-only session gives Pi the cwd without carrying previous session entries.
+    writeFileSync(
+        file,
+        JSON.stringify({
+            type: header.type,
+            version: header.version,
+            id: randomUUID(),
+            timestamp: new Date().toISOString(),
+            cwd,
+        }) + "\n",
+        { flag: "wx" },
+    );
 }
 
 export default function registerHarness(pi: ExtensionAPI): void
@@ -254,13 +272,15 @@ export default function registerHarness(pi: ExtensionAPI): void
         handler: async (args, ctx) =>
         {
             const requestPath = args.trim();
-            const request = JSON.parse(readFileSync(requestPath, "utf8")) as HarnessRequest;
+            const request = JSON.parse(readFileSync(requestPath, "utf8")) as SharedRequestFile;
             config = JSON.parse(readFileSync(request.configPath, "utf8")) as HarnessConfig;
             traceFile = request.tracePath;
             sequence = 0;
             providerRequest = 0;
 
-            await ctx.newSession({
+            createWorkspaceSession(ctx, request.sessionPath, request.cwd);
+
+            await ctx.switchSession(request.sessionPath, {
                 withSession: async (newContext) =>
                 {
                     activeCwd = newContext.cwd;
@@ -271,6 +291,27 @@ export default function registerHarness(pi: ExtensionAPI): void
                     }
 
                     await newContext.sendUserMessage(request.prompt);
+                },
+            });
+        },
+    });
+
+    pi.registerCommand("pi-integration-test-finish", {
+        description: "Finish a shared scenario before synchronizing its workspace",
+        handler: async (args, ctx) =>
+        {
+            const requestPath = args.trim();
+            const request = JSON.parse(readFileSync(requestPath, "utf8")) as SharedRequestFile;
+            const idleSession = `${request.sessionPath}.idle`;
+            createWorkspaceSession(ctx, idleSession, request.idleCwd);
+            await ctx.switchSession(idleSession, {
+                withSession: (idleContext) =>
+                {
+                    activeCwd = idleContext.cwd;
+                    process.chdir(activeCwd);
+                    appendFileSync(`${requestPath}.finished`, "finished\n", "utf8");
+
+                    return Promise.resolve();
                 },
             });
         },

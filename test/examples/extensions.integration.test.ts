@@ -166,14 +166,14 @@ test("registers and selects a tool during session_start", async () =>
     expect(getToolResultText(result, "runtime-echo")).toContain("[runtime] registered after startup");
     const runtimeDetails = getToolExecutionDetails(getToolExecution(result, "runtime-echo"));
     expect(runtimeDetails).toMatchObject({ activeTools: ["runtime_echo"] });
-    expect(["new", "startup"]).toContain(
-        (runtimeDetails as { readonly sessionStartReason?: unknown; }).sessionStartReason,
-    );
+    const shared = process.env.PI_INTEGRATION_TEST_RUNNER !== undefined;
+    expect((runtimeDetails as { readonly sessionStartReason?: unknown; }).sessionStartReason)
+        .toBe(shared ? "resume" : "startup");
     expect(getProviderSystemPrompt(result)).toContain("runtime extension configured this session");
     const lifecycle = JSON.parse(await readFile(path.join(workspace, "runtime-lifecycle.json"), "utf8")) as {
         readonly reason?: unknown;
         readonly activeTools?: readonly string[];
     };
     expect(lifecycle).toMatchObject({ activeTools: ["runtime_echo"] });
-    expect(["new", "quit"]).toContain(lifecycle.reason);
+    expect(lifecycle.reason).toBe(shared ? "resume" : "quit");
 });
