@@ -48,8 +48,9 @@ expect(getToolResultText(result, "call-1")).toContain("expected");
 - `timeoutMs` (default 30 s) bounds the whole run, not one call: raise it for a long scripted call, and raise the vitest timeout too. A run that ends at 30 s with no result hit this, not the tool under test. The same limit bounds the start of the shared Pi: on a loaded machine a large extension can take longer to load, and the run fails with `Shared Pi did not become ready within 30000ms`. Check the load before you debug the test; rerun when it drops.
 - A peer process that must write files while a tool call runs has to start inside the run, from the scripted call with the `bash` tool and `background: true`. Starting it in the test process does nothing: the test's own event loop stalls while Pi runs.
 - The raw renderer, the default, shows stable tool names, arguments, results and ordering. Set `rawMode: false` for native layout, progressive output, spinners and status. Assert data and presentation from the same run.
-- Use `chunks`, `delayMs`, `deltaDelaysMs`, `argumentsJson`, `contentIndex`, `argumentSnapshots` or `includeEnd` only when partial delivery or timing is the contract. Let a real extension abort on its own.
-- By default, scripted tool arguments stream in chunks of 1024 UTF-16 code units. If `delayMs`, `deltaDelaysMs` or `argumentSnapshots` is set without `chunks`, they stream by Unicode character instead; set `chunks` explicitly to choose another schedule.
+- Use `chunks`, `delayMs`, `deltaDelaysMs`, `argumentsJson`, `contentIndex`, `argumentSnapshots` or `includeEnd` only when partial delivery or timing is the contract, except for the one-delta schedule below. Let a real extension abort on its own.
+- By default, scripted text streams by Unicode character, and tool arguments stream in chunks of 1024 UTF-16 code units. If `delayMs`, `deltaDelaysMs` or `argumentSnapshots` is set without `chunks`, arguments stream by character as well; set `chunks` explicitly to choose another schedule.
+- When the streaming itself is not under test, deliver a block in one delta with `chunks: { kind: "fixed", size: Number.MAX_SAFE_INTEGER }` on `text(...)` and `toolCall(...)`. Large fixtures then arrive at once instead of timing out on thousands of deltas, whatever version the project locks.
 
 ## Run and debug
 
