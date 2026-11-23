@@ -9,6 +9,7 @@ export interface SharedRunnerEndpoint
     readonly host: string;
     readonly port: number;
     readonly token: string;
+    readonly maxPi?: number;
 }
 
 export interface SharedRunInput

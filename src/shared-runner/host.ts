@@ -6,10 +6,10 @@ export interface SharedRunnerHost
     readonly close: () => Promise<void>;
 }
 
-export async function startSharedRunnerHost(): Promise<SharedRunnerHost>
+export async function startSharedRunnerHost(live = false): Promise<SharedRunnerHost>
 {
     const previous = process.env[SHARED_RUNNER_ENVIRONMENT];
-    const { endpoint, teardown } = await startSharedRunner();
+    const { endpoint, teardown } = await startSharedRunner(live);
     process.env[SHARED_RUNNER_ENVIRONMENT] = JSON.stringify(endpoint);
     let closed = false;
 

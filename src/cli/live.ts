@@ -39,7 +39,7 @@ export async function runLiveCommand(options: LiveCommandOptions): Promise<numbe
     configureEnvironment(options);
     resetHostTerminal();
 
-    const host = await startSharedRunnerHost();
+    const host = await startSharedRunnerHost(true);
     const stopController = new AbortController();
     const stopRequested = new Promise<void>((resolve) =>
     {
