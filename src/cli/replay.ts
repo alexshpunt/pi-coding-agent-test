@@ -1,4 +1,4 @@
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { DEFAULT_TUI_SIZE } from "../runtime/constants.js";
@@ -8,6 +8,7 @@ import { synchronizedFrameEndOffsets } from "../terminal/synchronized-output.js"
 import type { TuiSize } from "../scenario/types.js";
 
 const maxSelectedFrames = 1_000;
+const finalSnapshotName = "tui-rendered.log";
 const playbackFrameReset =
     "\u001B[0m\u001B[?25h\u001B[?2004l\u001B[?2026l\u001B[?1000l\u001B[?1002l\u001B[?1003l\u001B[?1006l\u001B[?1015l\u001B[<100u\u001B[=0u\u001B[>4;0m";
 const playbackTerminalReset = `${playbackFrameReset}\u001B[?1049l\u001B[?1047l\u001B[?47l`;
@@ -22,18 +23,17 @@ export interface ReplayCommandOptions
     readonly speed: number;
 }
 
-interface ReplayInput
+interface ReplayInput extends BundlePlaybackData
 {
     readonly terminalLog: string;
     readonly artifactDirectory: string;
-    readonly frameDelaysMs?: readonly number[];
-    readonly stream: string;
 }
 
 interface BundlePlaybackData
 {
     readonly stream: string;
     readonly frameDelaysMs?: readonly number[];
+    readonly needsFinalSnapshot: boolean;
 }
 
 interface FrameChange
@@ -106,9 +106,8 @@ export async function runReplayCommand(options: ReplayCommandOptions): Promise<v
         renderer.write(input.stream.slice(appliedOffset));
         await renderer.flush();
 
-        const finalFrame = renderer.render();
         await writeFile(path.join(output, "index.tsv"), `${indexLines.join("\n")}\n`, "utf8");
-        await writeFile(path.join(output, "final.txt"), finalFrame, "utf8");
+        await writeFinalFrame(input, path.join(output, "final.txt"), renderer.render());
 
         const missing = [...selectedFrames].filter((frame) => frame > frameEnds.length);
 
@@ -154,7 +153,9 @@ async function resolveInput(input: string): Promise<ReplayInput>
 
     const terminalLog = isTerminalLog ? resolvedInput : path.join(artifactDirectory, "run.jsonl");
     const playback: BundlePlaybackData | null = isTerminalLog
-        ? await readFile(terminalLog, "utf8").then((stream) => ({ stream })).catch(() => null)
+        ? await readFile(terminalLog, "utf8").then((stream) => ({ stream, needsFinalSnapshot: false })).catch(() =>
+            null
+        )
         : await readBundleTerminal(terminalLog);
 
     if (playback === null)
@@ -165,8 +166,7 @@ async function resolveInput(input: string): Promise<ReplayInput>
     return {
         terminalLog,
         artifactDirectory,
-        ...(playback.frameDelaysMs === undefined ? {} : { frameDelaysMs: playback.frameDelaysMs }),
-        stream: playback.stream,
+        ...playback,
     };
 }
 
@@ -191,6 +191,8 @@ async function readBundleTerminal(runFile: string): Promise<BundlePlaybackData |
                     readonly data?: unknown;
                     readonly initialState?: unknown;
                     readonly frameDelaysMs?: unknown;
+                    readonly status?: unknown;
+                    readonly exitCode?: unknown;
                 }
             );
         const terminal = records.find((record) => record.kind === "terminal");
@@ -201,9 +203,14 @@ async function readBundleTerminal(runFile: string): Promise<BundlePlaybackData |
             return null;
         }
 
+        const initialState = typeof terminal.initialState === "string" ? terminal.initialState : undefined;
+
         return {
-            stream: (typeof terminal.initialState === "string" ? terminal.initialState : "") + terminal.data,
+            stream: (initialState ?? "") + terminal.data,
             ...(isNumberArray(summary?.frameDelaysMs) ? { frameDelaysMs: summary.frameDelaysMs } : {}),
+            // Old shared recordings start mid-session, so some cells never appear in the stream.
+            needsFinalSnapshot: initialState === undefined && summary?.status === "settled"
+                && summary.exitCode === null,
         };
     }
     catch
@@ -219,10 +226,32 @@ function assertSafeOutput(input: ReplayInput, output: string): void
         || input.artifactDirectory.startsWith(`${output}${path.sep}`)
         || input.terminalLog === output
         || input.terminalLog.startsWith(`${output}${path.sep}`)
+        || output === path.join(input.artifactDirectory, finalSnapshotName)
     )
     {
         throw new Error(`Replay output must not contain or replace the source artifacts: ${output}`);
     }
+}
+
+async function writeFinalFrame(input: ReplayInput, output: string, rendered: string): Promise<void>
+{
+    if (input.needsFinalSnapshot)
+    {
+        try
+        {
+            await copyFile(path.join(input.artifactDirectory, finalSnapshotName), output);
+            return;
+        }
+        catch (error)
+        {
+            if (!isRecord(error) || error.code !== "ENOENT")
+            {
+                throw error;
+            }
+        }
+    }
+
+    await writeFile(output, rendered, "utf8");
 }
 
 async function readTuiSize(artifactDirectory: string): Promise<TuiSize>
