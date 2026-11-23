@@ -167,6 +167,58 @@ describe("pi-test CLI", () =>
         expect(await readFile(path.join(output, "final.txt"), "utf8")).toContain("second frame");
     });
 
+    it.each([
+        { name: "legacy bundle without snapshot", initialState: undefined, snapshot: undefined, final: "response\n" },
+        {
+            name: "legacy bundle with snapshot",
+            initialState: undefined,
+            snapshot: "response\n   \n────\n",
+            final: "response\n   \n────\n",
+        },
+        {
+            name: "self-contained bundle with snapshot",
+            initialState: "\u001B[3;1H────\u001B[H",
+            snapshot: "stale screen\n",
+            final: "response\n\n────\n",
+        },
+    ])("exports the final screen for a $name", async (fixture) =>
+    {
+        const directory = await createTemporaryDirectory("pi-test-replay-");
+        const snapshotPath = path.join(directory, "tui-rendered.log");
+        const output = path.join(directory, "frames");
+        await writeFile(
+            path.join(directory, "run.jsonl"),
+            [
+                {
+                    kind: "terminal",
+                    data: "\u001B[?2026hresponse\u001B[?2026l",
+                    initialState: fixture.initialState,
+                },
+                { kind: "summary", status: "settled", exitCode: null, tuiSize: { cols: 40, rows: 5 } },
+            ].map((record) => JSON.stringify(record)).join("\n") + "\n",
+            "utf8",
+        );
+
+        if (fixture.snapshot !== undefined)
+        {
+            await writeFile(snapshotPath, fixture.snapshot, "utf8");
+        }
+
+        const result = runCli(["replay", directory, "--output", output, "--frames", "1"]);
+
+        expect(result.status).toBe(0);
+        expect(await readFile(path.join(output, "final.txt"), "utf8")).toBe(fixture.final);
+        expect(await readFile(path.join(output, "frame-000001.txt"), "utf8")).toBe(
+            fixture.initialState === undefined ? "response\n" : "response\n\n────\n",
+        );
+
+        if (fixture.snapshot !== undefined)
+        {
+            expect(runCli(["replay", directory, "--output", snapshotPath]).status).toBe(1);
+            expect(await readFile(snapshotPath, "utf8")).toBe(fixture.snapshot);
+        }
+    });
+
     it("plays reconstructed frames with an explicit fixed delay", async () =>
     {
         const fixture = await createReplayFixture();
