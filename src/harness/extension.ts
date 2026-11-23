@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, readFileSync, unwatchFile, watchFile, writeFileSync } from "node:fs";
 
 import { getCurrentSystemPrompt } from "@earendil-works/pi-ai";
 
@@ -119,6 +119,25 @@ function createWorkspaceSession(ctx: ExtensionCommandContext, file: string, cwd:
         }) + "\n",
         { flag: "wx" },
     );
+}
+
+function waitForFinishRequest(file: string): Promise<void>
+{
+    return new Promise((resolve) =>
+    {
+        const check = (): void =>
+        {
+            if (existsSync(file))
+            {
+                unwatchFile(file, check);
+                resolve();
+            }
+        };
+
+        // The runner can signal while sendUserMessage is still unwinding.
+        watchFile(file, { persistent: false, interval: 10 }, check);
+        check();
+    });
 }
 
 export default function registerHarness(pi: ExtensionAPI): void
@@ -280,9 +299,12 @@ export default function registerHarness(pi: ExtensionAPI): void
 
             createWorkspaceSession(ctx, request.sessionPath, request.cwd);
 
+            let scenarioContext: ExtensionCommandContext | undefined;
+
             await ctx.switchSession(request.sessionPath, {
                 withSession: async (newContext) =>
                 {
+                    scenarioContext = newContext;
                     activeCwd = newContext.cwd;
 
                     if (process.cwd() !== activeCwd)
@@ -293,27 +315,30 @@ export default function registerHarness(pi: ExtensionAPI): void
                     await newContext.sendUserMessage(request.prompt);
                 },
             });
-        },
-    });
 
-    pi.registerCommand("pi-integration-test-finish", {
-        description: "Finish a shared scenario before synchronizing its workspace",
-        handler: async (args, ctx) =>
-        {
-            const requestPath = args.trim();
-            const request = JSON.parse(readFileSync(requestPath, "utf8")) as SharedRequestFile;
+            if (scenarioContext === undefined)
+            {
+                return;
+            }
+
+            // Finish out of band: a focused overlay can consume terminal input.
+            await waitForFinishRequest(`${requestPath}.finish`);
             const idleSession = `${request.sessionPath}.idle`;
-            createWorkspaceSession(ctx, idleSession, request.idleCwd);
-            await ctx.switchSession(idleSession, {
+            createWorkspaceSession(scenarioContext, idleSession, request.idleCwd);
+            const result = await scenarioContext.switchSession(idleSession, {
                 withSession: (idleContext) =>
                 {
                     activeCwd = idleContext.cwd;
                     process.chdir(activeCwd);
-                    appendFileSync(`${requestPath}.finished`, "finished\n", "utf8");
 
                     return Promise.resolve();
                 },
             });
+
+            if (!result.cancelled)
+            {
+                appendFileSync(`${requestPath}.finished`, "finished\n", "utf8");
+            }
         },
     });
 
