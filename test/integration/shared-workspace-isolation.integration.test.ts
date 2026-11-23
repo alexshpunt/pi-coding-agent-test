@@ -1,6 +1,7 @@
-import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { access, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { startSharedRunnerHost } from "../../dist/shared-runner/host.js";
 
 import {
     assistantMessage,
@@ -102,6 +103,111 @@ test.runIf(process.env.PI_INTEGRATION_TEST_RUNNER !== undefined)(
         }
     },
 );
+
+test("runs compatible requests concurrently and evicts an idle Pi at the global limit", async () =>
+{
+    const previousLimit = process.env.PI_INTEGRATION_TEST_MAX_PI;
+    const previousEndpoint = process.env.PI_INTEGRATION_TEST_RUNNER;
+    const root = await mkdtemp(path.join(tmpdir(), "pi-test-pool-"));
+    const pids = new Set<number>();
+    process.env.PI_INTEGRATION_TEST_MAX_PI = "2";
+    const host = await startSharedRunnerHost();
+
+    try
+    {
+        const run = async (
+            value: string,
+            configuration = "original",
+            isolateUserResources = false,
+            source?: { cwd: string; name: string; },
+        ): Promise<WorkspaceValue> =>
+        {
+            const cwd = source?.cwd ?? await mkdtemp(path.join(root, `${value}-`));
+            await writeFile(path.join(cwd, "value.txt"), value);
+            const result = await new PiIntegrationTest({
+                testName: source?.name ?? value,
+                cwd,
+                artifactsDir: testArtifactsDir(import.meta.filename),
+                extensions: [path.join(path.dirname(import.meta.filename), "fixtures/workspace-cache-extension.ts")],
+                environment: { PI_TEST_WORKSPACE_BARRIER: root, PI_TEST_POOL_CONFIGURATION: configuration },
+                isolateUserResources,
+                tools: ["workspace_cache"],
+                conversation: [
+                    assistantMessage([
+                        toolCall({ id: "cache", name: "workspace_cache", arguments: {} }),
+                    ], { stopReason: "toolUse" }),
+                    assistantMessage([text("Done")], source === undefined ? {} : { delayMs: 1000 }),
+                ],
+            }).run("Read the fixture value");
+            expect(getToolExecution(result, "cache").isError).toBe(false);
+            const data = JSON.parse(getToolResultText(result, "cache")) as WorkspaceValue;
+            expect(data.value).toBe(value);
+            if (source === undefined)
+            {
+                expect(data.previousMarker).toBe(false);
+            }
+            expect(await readFile(path.join(cwd, "marker"), "utf8")).toBe(value);
+            pids.add(data.pid);
+            return data;
+        };
+
+        const [first, second] = await Promise.allSettled([run("first"), run("second")]);
+        expect(first.status).toBe("fulfilled");
+        expect(second.status).toBe("fulfilled");
+        expect(pids.size).toBe(2);
+        const originalPids = [...pids];
+        const workspace = await mkdtemp(path.join(root, "workspace-"));
+        const alias = path.join(root, "alias");
+        await symlink(workspace, alias, "junction");
+        const aliasRuns = await Promise.all([
+            run("aliased", "original", false, { cwd: workspace, name: "workspace" }),
+            run("aliased", "original", false, { cwd: alias, name: "workspace-alias" }),
+        ]);
+        expect(aliasRuns.map(({ previousMarker }) => previousMarker).sort()).toEqual([false, true]);
+        const reused = await run("reused");
+        expect(originalPids).toContain(reused.pid);
+
+        const replacement = await run("replacement", "different");
+        expect(originalPids).not.toContain(replacement.pid);
+        expect(originalPids.filter(isRunning)).toEqual([reused.pid]);
+
+        const isolated = await run("isolated", "original", true);
+        expect(isRunning(isolated.pid)).toBe(false);
+
+        await host.close();
+        expect([...pids].filter(isRunning)).toEqual([]);
+        expect(process.env.PI_INTEGRATION_TEST_RUNNER).toBe(previousEndpoint);
+    }
+    finally
+    {
+        await host.close();
+        await rm(root, { recursive: true, force: true });
+        if (previousLimit === undefined)
+        {
+            delete process.env.PI_INTEGRATION_TEST_MAX_PI;
+        }
+        else
+        {
+            process.env.PI_INTEGRATION_TEST_MAX_PI = previousLimit;
+        }
+    }
+});
+
+function isRunning(pid: number): boolean
+{
+    try
+    {
+        return process.kill(pid, 0);
+    }
+    catch (error)
+    {
+        if ((error as NodeJS.ErrnoException).code !== "ESRCH")
+        {
+            throw error;
+        }
+        return false;
+    }
+}
 
 interface WorkspaceValue
 {
