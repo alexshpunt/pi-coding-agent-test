@@ -112,13 +112,13 @@ Use live mode when timing and feel must be realistic. Use replay when the exact 
 
 ## Verify the final frame
 
-The replay and the integration result must agree on the final screen:
+Compare `final.txt` with the screen saved at the end of the run:
 
 ```bash
 cmp "$FRAME_DIR/final.txt" "$ARTIFACT_DIR/tui-rendered.log"
 ```
 
-A zero exit code means both paths reconstructed the same final terminal state.
+A zero exit code means the exported and saved screens match byte for byte. For a completed shared-runner recording with no initial terminal state, replay copies the accompanying `tui-rendered.log` to `final.txt` when present. Without that file, stream replay may miss cells that Pi did not redraw. The frame index, numbered files and playback always come from the terminal record.
 
 ## Inspect supporting artifacts
 
