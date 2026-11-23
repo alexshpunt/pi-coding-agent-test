@@ -18,7 +18,7 @@ Usage:
   pi-test replay <run-dir-or-run.jsonl> [options]
 
 Commands:
-  run       Run any test command with a shared Pi process
+  run       Run any test command with a bounded pool of Pi processes
   live      Repeat any test command with live Pi TUI output
   replay    Reconstruct and inspect frames from run.jsonl
 

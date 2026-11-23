@@ -46,23 +46,30 @@ export async function waitForSettledTrace(
     tracePath: string,
     expectedProviderRequestCount: number,
     timeoutMs: number,
+    signal?: AbortSignal,
 ): Promise<void>
 {
-    await waitForTrace(tracePath, timeoutMs, (events) =>
-    {
-        const providerRequests = events.filter((event) => event.type === "provider_request");
-
-        if (providerRequests.length < expectedProviderRequestCount)
+    await waitForTrace(
+        tracePath,
+        timeoutMs,
+        (events) =>
         {
-            return false;
-        }
+            const providerRequests = events.filter((event) => event.type === "provider_request");
 
-        const lastProviderRequest = providerRequests.at(-1);
-        return events.some((event) =>
-            event.type === "agent_settled"
-            && (lastProviderRequest === undefined || event.sequence > lastProviderRequest.sequence)
-        );
-    }, `Trace did not settle after provider request ${expectedProviderRequestCount}`);
+            if (providerRequests.length < expectedProviderRequestCount)
+            {
+                return false;
+            }
+
+            const lastProviderRequest = providerRequests.at(-1);
+            return events.some((event) =>
+                event.type === "agent_settled"
+                && (lastProviderRequest === undefined || event.sequence > lastProviderRequest.sequence)
+            );
+        },
+        `Trace did not settle after provider request ${expectedProviderRequestCount}`,
+        signal,
+    );
 }
 
 /** Wait for the settlement event belonging to a real user-provider agent run. */
@@ -81,6 +88,7 @@ async function waitForTrace(
     timeoutMs: number,
     complete: (events: readonly TraceEvent[]) => boolean,
     timeoutMessage: string,
+    signal?: AbortSignal,
 ): Promise<void>
 {
     const started = performance.now();
@@ -88,6 +96,8 @@ async function waitForTrace(
 
     while (performance.now() - started < timeoutMs)
     {
+        signal?.throwIfAborted();
+
         if (complete(await tail.poll()))
         {
             return;
@@ -204,12 +214,15 @@ export async function waitForNonEmptyFile(
     filePath: string,
     timeoutMs: number,
     timeoutMessage?: string,
+    signal?: AbortSignal,
 ): Promise<void>
 {
     const started = Date.now();
 
     while (Date.now() - started < timeoutMs)
     {
+        signal?.throwIfAborted();
+
         try
         {
             const contents = await readFile(filePath, "utf8");

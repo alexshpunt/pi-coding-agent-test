@@ -66,7 +66,7 @@ interface ActiveConfiguration
 
 /**
  * Stable identity of one shared Pi process configuration.
- * Two requests with equal keys reuse the same pooled Pi process.
+ * Two requests with equal keys can reuse an idle Pi.
  */
 export function sharedRunnerConfigKey(options: PiIntegrationTestOptions): string
 {
@@ -270,15 +270,23 @@ export class SharedPiProcess
     private frameTimestamps: number[] = [];
     private workspaceRoot: string | undefined;
     private closePromise: Promise<void> | undefined;
+    private pendingExit: Promise<number> | undefined;
+
+    /** The exit event of a PTY whose termination missed its deadline. */
+    public get unconfirmedExit(): Promise<number> | undefined
+    {
+        return this.pendingExit;
+    }
 
     public cancelLiveOutput(): void
     {
         this.liveTuiOutput?.cancel();
     }
 
-    public async run(request: SharedRunRequest): Promise<InteractiveProcessResult>
+    public async run(request: SharedRunRequest, signal?: AbortSignal): Promise<InteractiveProcessResult>
     {
-        await this.ensureProcess(request);
+        await this.ensureProcess(request, signal);
+        signal?.throwIfAborted();
 
         const workspaceParent = this.workspaceRoot;
         const sharedRoot = this.sharedRoot;
@@ -294,8 +302,8 @@ export class SharedPiProcess
         const workspaceRoot = path.join(workspaceParent, request.requestId);
         const workspaceSnapshot = await stageWorkspace(request.cwd, workspaceRoot);
 
-        const terminalOffset = this.terminalOutput.length;
-        const frameTimestampOffset = this.frameTimestamps.length;
+        this.terminalOutput = "";
+        this.frameTimestamps.length = 0;
         const timeoutMs = request.options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
         const runStartedAt = performance.now();
         const initialTerminalState = await renderer.serialize();
@@ -320,19 +328,21 @@ export class SharedPiProcess
 
         try
         {
+            signal?.throwIfAborted();
             this.pi.write(`/pi-integration-test ${requestFile}\r`);
             await waitForSettledTrace(
                 request.runtime.trace,
                 request.options.conversation?.length ?? 0,
                 timeoutMs,
+                signal,
             );
             await delay(50);
             await this.liveTuiOutput?.flush();
             await renderer.flush();
 
-            const terminalOutput = this.terminalOutput.slice(terminalOffset);
+            const terminalOutput = this.terminalOutput;
             const tuiRenderedOutput = renderer.render();
-            const frameTimestamps = this.frameTimestamps.slice(frameTimestampOffset);
+            const frameTimestamps = [...this.frameTimestamps];
             const frameDelaysMs = frameTimestamps.map((timestamp, index) =>
                 Math.max(0, timestamp - (index === 0 ? runStartedAt : frameTimestamps[index - 1]!))
             );
@@ -360,6 +370,7 @@ export class SharedPiProcess
                 finishedFile,
                 remainingTimeoutMs,
                 `Shared Pi scenario shutdown exceeded the ${timeoutMs}ms run budget`,
+                signal,
             );
         }
         catch (error)
@@ -442,16 +453,15 @@ export class SharedPiProcess
             return this.closePromise;
         }
 
-        const closePromise = this.closeProcess();
-        const trackedClosePromise = closePromise.finally(() =>
-        {
-            if (this.closePromise === trackedClosePromise)
-            {
-                this.closePromise = undefined;
-            }
-        });
-        this.closePromise = trackedClosePromise;
-        return trackedClosePromise;
+        // Preserve a failed teardown so the pool cannot recycle an unconfirmed exit.
+        this.closePromise = this.closeAndReset();
+        return this.closePromise;
+    }
+
+    private async closeAndReset(): Promise<void>
+    {
+        await this.closeProcess();
+        this.closePromise = undefined;
     }
 
     private async closeProcess(): Promise<void>
@@ -471,6 +481,7 @@ export class SharedPiProcess
             }
             catch (error)
             {
+                this.pendingExit = piExit;
                 cleanupErrors.push(error);
             }
         }
@@ -534,8 +545,11 @@ export class SharedPiProcess
         }
     }
 
-    private async ensureProcess(request: SharedRunRequest): Promise<void>
+    private async ensureProcess(request: SharedRunRequest, signal?: AbortSignal): Promise<void>
     {
+        signal?.throwIfAborted();
+        await this.closePromise;
+
         if (this.pi !== undefined)
         {
             if (!this.piExited)
@@ -720,15 +734,33 @@ export class SharedPiProcess
             });
 
             // Release the bootstrap only after the PTY exit observer is installed.
+            signal?.throwIfAborted();
             await rm(startupGatePath, { force: true });
 
-            await Promise.race([
-                waitForNonEmptyFile(readyPath, request.options.timeoutMs ?? DEFAULT_TIMEOUT_MS),
-                this.piExit.then((exitCode) =>
-                {
-                    throw new Error(`Shared Pi exited before becoming ready with code ${exitCode}`);
-                }),
-            ]);
+            const readiness = new AbortController();
+            const readinessSignal = signal === undefined
+                ? readiness.signal
+                : AbortSignal.any([signal, readiness.signal]);
+
+            try
+            {
+                await Promise.race([
+                    waitForNonEmptyFile(
+                        readyPath,
+                        request.options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+                        undefined,
+                        readinessSignal,
+                    ),
+                    this.piExit.then((exitCode) =>
+                    {
+                        throw new Error(`Shared Pi exited before becoming ready with code ${exitCode}`);
+                    }),
+                ]);
+            }
+            finally
+            {
+                readiness.abort();
+            }
         }
         catch (error)
         {
