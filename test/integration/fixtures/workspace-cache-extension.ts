@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 
 import { Type } from "typebox";
 
@@ -25,7 +26,7 @@ export default function workspaceCacheExtension(pi: ExtensionAPI): void
         label: "Workspace cache",
         description: "Read a value through a workspace-scoped cache.",
         parameters: Type.Object({}),
-        execute(_id, _params, _signal, _update, ctx)
+        async execute(_id, _params, _signal, _update, ctx)
         {
             let value = workspaces.get(ctx.cwd);
 
@@ -38,13 +39,33 @@ export default function workspaceCacheExtension(pi: ExtensionAPI): void
             const previousMarker = existsSync(path.join(ctx.cwd, "marker"));
             writeFileSync(path.join(ctx.cwd, "marker"), value);
 
-            return Promise.resolve({
+            // Both test requests must enter their tools before either can finish.
+            const barrier = process.env.PI_TEST_WORKSPACE_BARRIER;
+
+            if (barrier !== undefined && (value === "first" || value === "second"))
+            {
+                writeFileSync(path.join(barrier, value), String(process.pid));
+                const peer = path.join(barrier, value === "first" ? "second" : "first");
+                const deadline = performance.now() + 5000;
+
+                while (!existsSync(peer))
+                {
+                    if (performance.now() >= deadline)
+                    {
+                        throw new Error("The second Pi did not enter the workspace barrier");
+                    }
+
+                    await delay(20);
+                }
+            }
+
+            return {
                 content: [{
                     type: "text",
                     text: JSON.stringify({ pid: process.pid, cwd: ctx.cwd, value, previousMarker }),
                 }],
                 details: {},
-            });
+            };
         },
     });
 }
