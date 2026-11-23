@@ -164,6 +164,7 @@ Development and releases use this public repository. Open changes against `devel
 release candidates go to `main`. There is no private publisher or local-registry step.
 
 Run `npm ci` in each clone or worktree to install the pre-commit hook. It uses the same dprint configuration as CI and formats only the files staged for the commit. If formatting overlaps an unstaged edit, the hook formats the staged version and leaves the working file unchanged.
+If you already have a custom pre-commit hook, add `node .githooks/format-staged.mjs` to it.
 
 `runtime.yml` checks Ubuntu and native Windows. `release.yml` validates source tests,
 browser behavior and a clean tarball install. Publishing a GitHub Release runs the
