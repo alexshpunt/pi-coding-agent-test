@@ -163,6 +163,8 @@ npm run demo:replay
 Development and releases use this public repository. Open changes against `develop`;
 release candidates go to `main`. There is no private publisher or local-registry step.
 
+Run `npm ci` in each clone or worktree to install the pre-commit hook. It uses the same dprint configuration as CI and formats only the files staged for the commit. If formatting overlaps an unstaged edit, the hook formats the staged version and leaves the working file unchanged.
+
 `runtime.yml` checks Ubuntu and native Windows. `release.yml` validates source tests,
 browser behavior and a clean tarball install. Publishing a GitHub Release runs the
 npm OIDC publisher on that exact validated archive. A manual workflow run validates
