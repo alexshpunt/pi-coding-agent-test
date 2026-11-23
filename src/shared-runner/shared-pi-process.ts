@@ -301,6 +301,7 @@ export class SharedPiProcess
         const initialTerminalState = await renderer.serialize();
 
         const requestFile = path.join(sharedRoot, `.pi-integration-request-${request.requestId}.json`);
+        const finishFile = `${requestFile}.finish`;
         const finishedFile = `${requestFile}.finished`;
         const requestData: SharedRequestFile = {
             cwd: workspaceRoot,
@@ -353,7 +354,7 @@ export class SharedPiProcess
             };
 
             // Complete shutdown hooks before copying this scenario's files back to its fixture.
-            this.pi.write(`/pi-integration-test-finish ${requestFile}\r`);
+            await writeFile(finishFile, "finish\n", "utf8");
             const remainingTimeoutMs = Math.max(0, timeoutMs - (performance.now() - runStartedAt));
             await waitForNonEmptyFile(
                 finishedFile,
@@ -371,7 +372,7 @@ export class SharedPiProcess
 
         try
         {
-            await Promise.all([rm(requestFile, { force: true }), rm(finishedFile, { force: true })]);
+            await Promise.all([requestFile, finishFile, finishedFile].map((file) => rm(file, { force: true })));
         }
         catch (error)
         {
